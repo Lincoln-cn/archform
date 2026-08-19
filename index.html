@@ -414,6 +414,26 @@
   .btn-row button:hover{background:#eef5fc}
   .empty-tip{color:#8a9fb5;font-size:12px;text-align:center;padding:20px 0}
 </style>
+<!-- ================= Google Analytics(GA4)统计(可选) =================
+  默认关闭。启用方法:把下面 window.GA_MEASUREMENT_ID 改成你的 GA4 统计 ID(形如 G-XXXXXXXXXX)。
+  仅在线托管(GitHub Pages / 自有域名)时加载;file:// 本地打开不加载,不影响离线使用。
+  注意:谷歌服务在国内网络环境下可能无法访问,统计不到属正常现象,不影响工具本身。 -->
+<script>
+  window.GA_MEASUREMENT_ID = window.GA_MEASUREMENT_ID || 'G-KVMD8XZD58';   // GA4 统计 ID
+  (function () {
+    var gid = window.GA_MEASUREMENT_ID;
+    if (!gid) return;
+    if (location.protocol === 'file:') return;   // 本地离线使用不统计
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(gid);
+    document.head.appendChild(s);
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { dataLayer.push(arguments); };
+    gtag('js', new Date());
+    gtag('config', gid);
+  })();
+</script>
 </head>
 <body>
 <div id="toolbar">
