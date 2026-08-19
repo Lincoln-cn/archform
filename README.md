@@ -1,113 +1,198 @@
 # ArchForm · 架构表单
 
-**把画框图变成填表单。** 一个快速处理**结构化框图**的工具:左侧结构树增删改 图→层→分组→模块→条目,右侧实时预览,一键导出 SVG / PNG / 独立 HTML。样式规范固化(虚线面板、圆角 2px、字号层级),无需安装、无需后端、**完全离线**,拷到任意项目即可复用。
+**把画框图变成填表单 — Turn diagram-drawing into form-filling.**
 
-> 与 draw.io / Visio / ProcessOn 等画布工具的本质区别:分层架构图是**结构化数据**,不是自由画布——本工具用"填表单 → 自动排版 → 规范固化"替代手工拉框、对齐、调色,并让架构图数据可 diff、可版本管理、可复用。
-> 自由曲线连线等场景请使用画布工具(详见 [docs/ROADMAP.md](docs/ROADMAP.md)「设计边界」)。
+[![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![Dependencies](https://img.shields.io/badge/Dependencies-0-brightgreen)](#)
+[![Platform](https://img.shields.io/badge/Platform-file%3A%2F%2F%20%7C%20Static-lightgrey)](#)
 
-## 文件说明
+> **中文** · ArchForm 是一个零依赖、完全离线的**结构化框图**编辑器:分层架构图(总体架构 / 应用架构 / 数据架构 / 技术架构)通过编辑数据树自动排版,而不是在画布上手工拉框。分层架构图是**结构化数据**,不是自由画布——自由曲线绘制场景不在范围内(见 [设计边界](docs/ROADMAP.md))。
+>
+> **English** · ArchForm is a zero-dependency, fully-offline web tool for **structured block diagrams** — the layered architecture diagrams that enterprise architects draw every day. Instead of dragging boxes on a free canvas, you edit a data tree (Diagram → Layer → Group → Block → Item) and the layout is generated for you. Layered diagrams are **structured data**, not free-form canvases — free-curve drawing is out of scope (see [design boundaries](docs/ROADMAP.md)).
 
-| 文件 | 说明 |
+## Preview / 预览
+
+| | |
 |---|---|
-| `index.html` | 编辑器骨架(内联样式规范 + 页面结构,双击浏览器打开即用;GitHub Pages 可直接托管) |
-| `editor-core.js` | 数据与工具:状态、节点查找、模板加载、数据版本化(`migrateDiagram`) |
-| `editor-render.js` | 渲染引擎:3 种板式(多层横向 / 中央核心 / 卡片网格) |
-| `editor-ui.js` | 交互:结构树、属性面板、配色方案、编辑操作、导入导出、SVG/PNG 导出、缩放预览、初始化 |
-| `templates.js` | 预置模板库(5 个:通用分层 + 总体/应用/数据/技术 架构四件套,内容为中性占位) |
-| `docs/` | 对外公开文档(版本规划 ROADMAP、文档索引) |
-| `LICENSE` | Apache-2.0 开源许可 |
+| Overall Architecture · layered · default blue / 总体架构 · 分层 · 经典蓝 | Data Architecture · layered · green / 数据架构 · 分层 · 青绿 |
+| ![Overall Architecture template](docs/images/preview.png) | ![Data Architecture template with green palette](docs/images/data-green.png) |
+| Central-core layout · amber / 中央核心板式 · 暖橙 | Clean PNG export / 纯净 PNG 导出 |
+| ![Central core layout with amber palette](docs/images/central-amber.png) | ![Standalone PNG export](docs/images/export-data.png) |
 
-> 依赖:**零运行时依赖、零网络依赖**。编辑、渲染、导出 SVG/PNG/独立 HTML 全部离线可用。
+---
 
-## 打开方式
+## English
 
-双击 `index.html`,用 Chrome / Edge 打开即可(file:// 直接打开,无需服务器)。
+### Why not another canvas tool?
 
-## 使用步骤
+Layered architecture diagrams are ~90% a nested structure — **Layer → Group → Block → Item** — not a free topology. Canvas tools (draw.io / Visio / ProcessOn) force you to hand-align boxes, tune spacing, and unify styles, spending effort on *arranging* instead of *thinking*. ArchForm solves this with **structured input → auto layout → normalized style**, and keeps the diagram itself versionable, diffable, and reusable.
 
-1. **开始**:
-   - 从模板开始:工具栏「模板 → 选择 → 加载」,加载后替换为实际内容(预置 5 个模板:通用分层 / 系统总体架构 / 应用架构 / 数据架构 / 技术架构)。
-   - 从零开始:点「文件 ▾ → 新建空白图」,再点「+ 新增层」逐级搭建。
-2. **编辑内容**(结构树 + 属性面板):
-   - 左侧**结构树**:图 → 层 → 分组 → 模块 四级。点击箭头展开/折叠;悬停节点出现 `+`(新增子项)、`↑↓`(排序)、`×`(删除);点击选中。
-   - 右侧**属性面板**:随选中节点变化——图标题/副标题/板式、层名称/竖条颜色/列数/统计、分组标题、模块名称/副标题/条目列表。
-   - **条目**(模块内的小标签):输入框回车即新增,点 `×` 删除。
-   - 画布上直接点击任意模块也可选中编辑。
-3. **换板式**:属性面板选中「图」,改「布局范式」即可在同一份内容上切换 多层横向 / 中央核心 / 卡片网格,数据不丢失。
-4. **配色**:工具栏「配色 ▾」一键套用预置风格(经典蓝/青绿/紫罗兰/暖橙/墨绿/灰蓝),或展开菜单底部自定义六档色阶并应用;配色随图保存,刷新与导出保持一致。
-5. **导出**(全部离线):
-   - 「导出PNG」:下载整图高清 PNG(2 倍缩放,含当前配色,不含编辑界面)。
-   - 「文件 ▾ → 导出SVG」:下载矢量 SVG(可无损缩放,可进一步编辑)。
-   - 「文件 ▾ → 保存为HTML」:生成独立 HTML(含完整样式与当前配色、内嵌矢量图数据,可交付、可插入文档、可再次下载 PNG)。
+### Features
 
-## 工具栏说明
+- **Structured input** — edit a 4-level tree (Diagram → Layer → Group → Block → Item) with inline properties; click any block on the canvas to edit it
+- **Auto layout** — 3 paradigms on the same data, switchable without data loss: *layered* (多层横向), *central core* (中央核心), *cards grid* (卡片网格)
+- **Normalized style spec** — dashed panels, 2px radius, fixed type scale; 6 preset color schemes + custom 6-shade palette, saved with the diagram (including the right-side pillar bars)
+- **Extras that matter in reviews** — bottom legend bar and right-side pillar bars (体系通栏) for cross-cutting concerns (security, operations, governance)
+- **Fully offline** — export vector **SVG**, high-res **PNG** (2×), or a standalone **HTML** (with embedded vector data); zero network requests, zero runtime dependencies; `file://` double-click to run
+- **Versioned data** — every diagram carries `schemaVersion`, auto-migrated on load (`migrateDiagram`); JSON import/export and `localStorage` autosave
+- **5 built-in templates** — Generic Layered, Overall Architecture, Application Architecture, Data Architecture (data-warehouse layering), Technology Architecture
 
-- **文件 ▾**：新建空白图 / 保存到本地 / 导入JSON / 导出JSON / 导出SVG / 保存为HTML
-- **视图 ▾**：预览（Esc 退出）/ 100%缩放 / 适应宽度
-- **配色 ▾**：预置配色方案 + 自定义六档色阶
-- 常驻：模板加载、缩放滑块、`+ 新增层`、`导出PNG`
+### Quick Start
 
-## 布局范式（板式）
+```bash
+git clone https://github.com/Lincoln-cn/archform.git
+cd archform
+# no install, no server, no network — just open:
+start index.html        # Windows
+open index.html         # macOS / Linux
+```
 
-| 板式 | 结构 | 适用 |
+Works from `file://` directly.
+
+### Deploy to GitHub Pages (online use)
+
+The repo is GitHub Pages-ready — all asset references are relative:
+
+1. Push the repo to GitHub, then go to **Settings → Pages** and set the source to `master` branch (root, `/`).
+2. Your online copy will be served at `https://<user>.github.io/archform/` (`.nojekyll` is included to keep the static hosting predictable).
+3. Open it in any browser — same editor, no backend. Note: `localStorage` autosave is scoped per origin + path, so a browser profile on the online copy is separate from your local files (use **导出JSON / 导入JSON** to move diagrams between them).
+
+To share it with a team without GitHub, drop the folder on any static host or intranet share — `index.html` is the entry.
+
+### Templates
+
+| Template | Layout | Use case |
 |---|---|---|
-| 多层横向 | 层(竖排 band) → 分组 → 模块卡片 → 条目 | 分层/模块类框图（默认） |
-| 中央核心 | 上/左/核心/右/下 五区 | 以核心系统为主的框图 |
-| 卡片网格 | DL1 卡片 → DL2 分组 → DL3 列表+标签 | 目录/清单类框图 |
+| 通用分层架构 Generic Layered | layered | Generic layered reference (capability demo) |
+| 系统总体架构图 Overall Architecture | layered | User → Application → Platform → Data → Infrastructure, with security/ops pillars |
+| 应用架构图 Application Architecture | layered | Application systems and their functional modules |
+| 数据架构图 Data Architecture | layered | Source → ODS → DWD → DWS → ADS → Service layering by subject domain |
+| 技术架构图 Technology Architecture | layered | Access → Services → Middleware → Storage → Infrastructure |
 
-## 辅助区域（所有板式通用）
+Templates are plain data in `templates.js` — add your own by copying the JSON structure.
 
-- **底部图例通栏**：结构树 →「底部图例」→ `+` 新增图例项，可配置色块颜色与描述文字；导出时随图输出。
-- **右侧通栏（体系说明）**：结构树 →「右侧通栏（体系说明）」→ `+` 新增体系；体系竖条横向并排，可配置名称、颜色与说明条目；无条目时标题充满竖条并放大；通栏宽度可拖拽调整（仅编辑态显示拖拽条）。
-- **竖条颜色**：层竖条与体系竖条提供 6 档预置色板 + 自定义取色器。
+### Export
 
-## 配色方案
+| Format | Description |
+|---|---|
+| **SVG** | Vector, losslessly scalable, further editable (File → 导出SVG) |
+| **PNG** | 2× high-resolution raster of the whole diagram, current palette (toolbar 导出PNG) |
+| **HTML** | Standalone file with full styles + embedded vector data; can be inserted into docs, PNG still downloadable inside |
+| **JSON** | The diagram data itself — versioned, diffable, reusable across projects |
 
-- 预置 6 套：经典蓝 / 青绿 / 紫罗兰 / 暖橙 / 墨绿 / 灰蓝。套用时自动替换图中所有"预置色板颜色"为方案对应色阶，并同步卡片/虚线框/面板底色。
-- 自定义：菜单底部六档取色器（从左到右为 亮→深），「应用自定义配色」保存并套用；自定义配色随图 JSON 一起保存/导出。
-- 图中手工选的自定义颜色（不在预置色板内）套用方案时保留不变。
-
-## 数据管理
-
-- **自动保存**：编辑内容实时存入浏览器 `localStorage`，刷新不丢。
-- **数据版本化**：图数据带 `schemaVersion`，加载时经 `migrateDiagram` 自动迁移/兜底；旧数据（无版本号）视为 v1 正常打开；版本过高时友好提示（见 [docs/ROADMAP.md](docs/ROADMAP.md)「数据兼容承诺」）。
-- **导出 JSON**：把当前图（含配色）存为 `.json`，可换机器/换项目继续编辑。
-- **导入 JSON**：打开「导入JSON」选择文件恢复。
-- **预置模板**：`templates.js` 中 `window.ARCH_TEMPLATES` 对象，按同样结构增删即可扩展。
-
-## 数据模型（JSON 结构）
+### Project Structure
 
 ```
-Diagram
-├─ schemaVersion                 // 数据版本（当前 1，缺省视为 1）
-├─ title / subtitle / layout     // 标题、副标题、板式（layered/cards/central）
-├─ theme                         // 配色方案（id / custom 六档色阶 / vars 主题变量）
-├─ layers[]                      // 层 / 卡片 / 模块（按板式解释）
-│  ├─ name / bandColor / cols / stat // 层属性
-│  ├─ groups[]                   // 分组
-│  │  ├─ title
-│  │  └─ blocks[]                // 模块
-│  │     ├─ title / sub          // 名称、副标题
-│  │     ├─ items[]              // 条目（字符串，或 {text,cat,reuse} 对象）
-│  │     └─ span                 // 1=正常，2=整行
-├─ sidebar[] / legend[]          // 右侧通栏体系、底部图例
-└─ connections（预留，v0.3）      // 连线配置（可选，缺省不渲染，不改变布局）
+.
+├─ index.html           # Editor shell (inline style spec + page; double-click to run)
+├─ editor-core.js       # State, node lookup, data versioning (migrateDiagram)
+├─ editor-render.js     # Render engine: layered / central / cards
+├─ editor-ui.js         # Tree, property panel, color schemes, export (SVG/PNG/HTML), zoom
+├─ templates.js         # Built-in template library (plain data)
+├─ docs/                # Public documentation (roadmap, usage guide)
+└─ LICENSE              # Apache-2.0
 ```
 
-## 通用性说明
+### Documentation
 
-- 纯前端，不绑定任何项目；复制 `index.html` + 3 个 `editor-*.js` + `templates.js` 到新项目即可使用（保持同目录）。
-- 模板数据与编辑器分离：换项目只需替换 `templates.js`，或通过「导入 JSON」加载项目自己的图数据。
-- 样式规范固化在编辑器内（虚线面板、圆角 2px、字号层级），整体风格通过「配色 ▾」切换；如团队要改默认主题，改编辑器 `<style>` 中 `:root` 颜色变量即可全局生效。
+- [docs/ROADMAP.md](docs/ROADMAP.md) — version roadmap, pain-point background, **design boundaries** (connection strategy, data compatibility promise)
+- [docs/usage.md](docs/usage.md) — detailed usage guide (中文使用指南)
 
-## 已知限制
+### Contributing
 
-- **不提供自由画布与自由连线**：本工具定位是"结构化输入 → 自动排版"。连线策略（可选、不改变布局、仅层↔层）与逃生通道（导出 draw.io XML）见 [docs/ROADMAP.md](docs/ROADMAP.md)「设计边界」；需要自由绘制/自由曲线的场景请使用 draw.io 等画布工具。
-- **localStorage 按浏览器与文件路径隔离**：换浏览器或复制文件后，需通过「导入 JSON」恢复数据，或在新位置用「导出 JSON」重新保存。
-- 模块名称的"6 字规范"等团队约定，暂未内置自动校验，可在模板数据生成时统一治理。
+- **Templates**: add plain JSON to `templates.js` and open a PR — no build step involved
+- **Bugs / feature requests**: open an issue (template request or editor bug)
+- Roadmap decisions live in [docs/ROADMAP.md](docs/ROADMAP.md) — read it before starting bigger work
 
-## 开源
+### License
 
-- 仓库：GitHub（`archform`），许可：Apache-2.0。
-- 版本规划、设计边界、数据兼容承诺见 [docs/ROADMAP.md](docs/ROADMAP.md)。
-- 贡献：新增模板只需改 `templates.js` 的 JSON 数据；bug 或模板请求请提 issue。
+[Apache-2.0](LICENSE) © 2026 ArchForm Contributors
+
+---
+
+## 中文
+
+### 为什么不是又一个画布工具?
+
+分层架构图 90% 是"层 → 分组 → 模块 → 条目"的嵌套结构,不是自由拓扑。画布工具(draw.io / Visio / ProcessOn)强迫你手工拉框、对齐、调间距——精力花在"摆"而不是"想"。ArchForm 用**结构化输入 → 自动排版 → 规范固化**解决这个问题,并让架构图数据可 diff、可版本管理、可复用。
+
+### 特性
+
+- **结构化输入**:编辑四级结构树(图 → 层 → 分组 → 模块 → 条目),画布上点击任意模块即可编辑
+- **自动排版**:同一份内容在 3 种板式间切换,数据不丢失——多层横向、中央核心、卡片网格
+- **规范固化**:虚线面板、圆角 2px、字号层级;6 套预置配色 + 自定义六档色阶,随图保存(含右侧通栏竖条)
+- **评审友好的辅助区**:底部图例通栏、右侧体系通栏(安全/运维/治理等贯穿性体系)
+- **完全离线**:导出矢量 **SVG**、高清 **PNG**(2 倍)、独立 **HTML**(内嵌矢量数据);零网络请求、零运行时依赖,`file://` 双击即用
+- **数据版本化**:图数据带 `schemaVersion`,加载时自动迁移(`migrateDiagram`);JSON 导入导出 + localStorage 自动保存
+- **5 个内置模板**:通用分层 / 总体架构 / 应用架构 / 数据架构(数仓分层)/ 技术架构
+
+### 快速开始
+
+```bash
+git clone https://github.com/Lincoln-cn/archform.git
+cd archform
+# 无需安装、无需服务器、无需网络,直接打开:
+start index.html        # Windows
+open index.html         # macOS / Linux
+```
+
+支持 `file://` 直接打开。
+
+### 部署到 GitHub Pages 在线使用
+
+仓库已为 GitHub Pages 就绪(所有资源引用均为相对路径):
+
+1. 推送仓库到 GitHub 后,进入 **Settings → Pages**,将发布源设为 `master` 分支(根目录 `/`)。
+2. 在线版本地址为 `https://<user>.github.io/archform/`(已含 `.nojekyll`,静态托管行为可控)。
+3. 任意浏览器打开即可使用,无需后端。注意:`localStorage` 自动保存按"访问地址 + 浏览器"隔离,在线副本与本机文件互不相通——跨环境迁移图用「导出JSON / 导入JSON」。
+
+不想用 GitHub 时,把整个目录丢到任意静态站点或内网共享即可,`index.html` 是入口。
+
+### 模板
+
+| 模板 | 板式 | 适用场景 |
+|---|---|---|
+| 通用分层架构 | 多层横向 | 通用分层参考(能力上限演示) |
+| 系统总体架构图 | 多层横向 | 用户 → 应用 → 平台 → 数据 → 基础设施,安全/运维贯穿 |
+| 应用架构图 | 多层横向 | 应用系统及其功能模块划分 |
+| 数据架构图 | 多层横向 | 数据源 → ODS → DWD → DWS → ADS → 数据服务,按主题域 |
+| 技术架构图 | 多层横向 | 接入 → 服务 → 中间件 → 存储 → 基础设施 |
+
+模板是 `templates.js` 里的纯数据——复制 JSON 结构即可新增自己的模板。
+
+### 导出
+
+| 格式 | 说明 |
+|---|---|
+| **SVG** | 矢量图,无损缩放,可继续编辑(文件 → 导出SVG) |
+| **PNG** | 整图 2 倍高清位图,含当前配色(工具栏 导出PNG) |
+| **HTML** | 独立文件,含完整样式与内嵌矢量数据;可插入文档,内部仍可下载 PNG |
+| **JSON** | 图数据本身——可版本管理、可 diff、可跨项目复用 |
+
+### 目录结构
+
+```
+.
+├─ index.html           # 编辑器骨架(内联样式规范 + 页面;双击即用)
+├─ editor-core.js       # 状态、节点查找、数据版本化(migrateDiagram)
+├─ editor-render.js     # 渲染引擎:多层横向 / 中央核心 / 卡片网格
+├─ editor-ui.js         # 结构树、属性面板、配色、导出(SVG/PNG/HTML)、缩放
+├─ templates.js         # 内置模板库(纯数据)
+├─ docs/                # 对外文档(版本规划、使用指南)
+└─ LICENSE              # Apache-2.0
+```
+
+### 文档
+
+- [docs/ROADMAP.md](docs/ROADMAP.md) — 版本规划、痛点背景、**设计边界**(连线策略、数据兼容承诺)
+- [docs/usage.md](docs/usage.md) — 详细使用指南(中文)
+
+### 贡献
+
+- **模板**:在 `templates.js` 中加纯 JSON 数据,直接提 PR——无构建步骤
+- **Bug / 需求**:提 issue(注明是模板请求还是编辑器问题)
+- 较大改动前请先阅读 [docs/ROADMAP.md](docs/ROADMAP.md) 中的版本规划与设计边界
+
+### 许可
+
+[Apache-2.0](LICENSE) © 2026 ArchForm Contributors
