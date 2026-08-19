@@ -243,7 +243,7 @@
   #captureArea:not(.editing) .side-divider{visibility:hidden;pointer-events:none}
   .arch .sidebar{display:flex;flex-direction:row;gap:6px;align-items:stretch}
   .arch .sbar{
-    background:#183c63;border:1px solid #2c78c2;border-radius:2px;overflow:hidden;
+    background:var(--sbar,#183c63);border:1px solid var(--sbar-border,#2c78c2);border-radius:2px;overflow:hidden;
     display:flex;flex-direction:column;flex:1 1 0;min-width:0;
   }
   .arch .sbar .sb-title{
@@ -254,11 +254,11 @@
   /* 体系无说明条目时：标题充满整个竖条并放大 */
   .arch .sbar.no-items .sb-title{flex:1;min-height:0;font-size:19px}
   .arch .sbar .sb-items{
-    display:flex;flex-direction:column;justify-content:center;gap:6px;padding:10px;flex:1;
+    display:flex;flex-direction:column;justify-content:center;gap:10px;padding:12px 10px;flex:1;
   }
   .arch .sbar .sb-item{
     background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);
-    border-radius:2px;color:#fff;font-size:12px;text-align:center;padding:4px 6px;
+    border-radius:2px;color:#fff;font-size:14px;text-align:center;padding:6px 8px;
   }
 
   /* ===== 底部图例通栏 ===== */

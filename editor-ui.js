@@ -283,6 +283,7 @@ function newBlank() {
   if (!confirm('新建空白图？当前内容将丢失（可先点"导出JSON"备份）。')) return;
   diagram = { schemaVersion: 1, id: uid(), title: '未命名架构图', subtitle: '', layout: 'layered', layers: [] };
   selectedId = null;
+  applyThemeVars(COLOR_SCHEMES[0].vars);   // 空白图恢复默认配色
   persist(); render(); renderProps();
 }
 
@@ -455,19 +456,26 @@ function loadTemplate() {
   if (!key || !tpls[key]) return;
   const migrated = migrateDiagram(JSON.parse(JSON.stringify(tpls[key])));   // 深拷贝 + 版本迁移
   if (!migrated || migrated.error) { alert(migrated ? migrated.error : '模板数据无效'); return; }
+  const prevTheme = diagram && diagram.theme;    // 记住已选配色，模板加载后按同方案重绘
   diagram = migrated;
   selectedId = null;
-  persist(); render(); renderProps();
+  if (prevTheme) {
+    applyScheme(prevTheme.custom
+      ? { id: '__custom', custom: true, colors: prevTheme.custom, vars: prevTheme.vars }
+      : COLOR_SCHEMES.find(s => s.id === prevTheme.id) || COLOR_SCHEMES[0]);
+  } else {
+    persist(); render(); renderProps();
+  }
 }
 
 /* ================= 配色方案 ================= */
 const COLOR_SCHEMES = [
-  { id: 'blue', name: '经典蓝', colors: ['#2f80c2', '#2379bd', '#1a5c94', '#143c66', '#0e2a47', '#0e7a8a'], vars: { '--blue': '#2379bd', '--blue2': '#2f80c2', '--dash': '#2c78c2', '--panel': '#c8ddef' } },
-  { id: 'green', name: '青绿', colors: ['#34d399', '#10b981', '#059669', '#047857', '#065f46', '#0e7490'], vars: { '--blue': '#059669', '--blue2': '#10b981', '--dash': '#10b981', '--panel': '#d1fae5' } },
-  { id: 'violet', name: '紫罗兰', colors: ['#a78bfa', '#8b5cf6', '#7c3aed', '#6d28d9', '#5b21b6', '#4c1d95'], vars: { '--blue': '#7c3aed', '--blue2': '#8b5cf6', '--dash': '#8b5cf6', '--panel': '#ede9fe' } },
-  { id: 'amber', name: '暖橙', colors: ['#fbbf24', '#f59e0b', '#d97706', '#b45309', '#92400e', '#c2410c'], vars: { '--blue': '#d97706', '--blue2': '#f59e0b', '--dash': '#f59e0b', '--panel': '#fef3c7' } },
-  { id: 'forest', name: '墨绿', colors: ['#4ade80', '#22c55e', '#16a34a', '#15803d', '#166534', '#14532d'], vars: { '--blue': '#16a34a', '--blue2': '#22c55e', '--dash': '#4ade80', '--panel': '#dcfce7' } },
-  { id: 'slate', name: '灰蓝', colors: ['#64748b', '#475569', '#334155', '#1e293b', '#0f172a', '#0369a1'], vars: { '--blue': '#334155', '--blue2': '#475569', '--dash': '#94a3b8', '--panel': '#e2e8f0' } }
+  { id: 'blue', name: '经典蓝', colors: ['#2f80c2', '#2379bd', '#1a5c94', '#143c66', '#0e2a47', '#0e7a8a'], vars: { '--blue': '#2379bd', '--blue2': '#2f80c2', '--dash': '#2c78c2', '--panel': '#c8ddef', '--sbar': '#183c63', '--sbar-border': '#2c78c2' } },
+  { id: 'green', name: '青绿', colors: ['#34d399', '#10b981', '#059669', '#047857', '#065f46', '#0e7490'], vars: { '--blue': '#059669', '--blue2': '#10b981', '--dash': '#10b981', '--panel': '#d1fae5', '--sbar': '#064e3b', '--sbar-border': '#10b981' } },
+  { id: 'violet', name: '紫罗兰', colors: ['#a78bfa', '#8b5cf6', '#7c3aed', '#6d28d9', '#5b21b6', '#4c1d95'], vars: { '--blue': '#7c3aed', '--blue2': '#8b5cf6', '--dash': '#8b5cf6', '--panel': '#ede9fe', '--sbar': '#3b0764', '--sbar-border': '#8b5cf6' } },
+  { id: 'amber', name: '暖橙', colors: ['#fbbf24', '#f59e0b', '#d97706', '#b45309', '#92400e', '#c2410c'], vars: { '--blue': '#d97706', '--blue2': '#f59e0b', '--dash': '#f59e0b', '--panel': '#fef3c7', '--sbar': '#78350f', '--sbar-border': '#f59e0b' } },
+  { id: 'forest', name: '墨绿', colors: ['#4ade80', '#22c55e', '#16a34a', '#15803d', '#166534', '#14532d'], vars: { '--blue': '#16a34a', '--blue2': '#22c55e', '--dash': '#4ade80', '--panel': '#dcfce7', '--sbar': '#14532d', '--sbar-border': '#22c55e' } },
+  { id: 'slate', name: '灰蓝', colors: ['#64748b', '#475569', '#334155', '#1e293b', '#0f172a', '#0369a1'], vars: { '--blue': '#334155', '--blue2': '#475569', '--dash': '#94a3b8', '--panel': '#e2e8f0', '--sbar': '#0f172a', '--sbar-border': '#64748b' } }
 ];
 function currentScheme() {
   const t = (diagram && diagram.theme) || {};
@@ -514,7 +522,7 @@ function applyCustomScheme() {
   const colors = [...document.querySelectorAll('#schemeCustomRow input')].map(i => i.value);
   applyScheme({
     id: '__custom', custom: true, colors,
-    vars: { '--blue': colors[1] || '#2379bd', '--blue2': colors[0] || '#2f80c2', '--dash': colors[1] || '#2c78c2', '--panel': (colors[2] || '#143c66') + '40' }
+    vars: { '--blue': colors[1] || '#2379bd', '--blue2': colors[0] || '#2f80c2', '--dash': colors[1] || '#2c78c2', '--panel': (colors[2] || '#143c66') + '40', '--sbar': colors[4] || '#143c66', '--sbar-border': colors[1] || '#2f80c2' }
   });
 }
 
@@ -539,6 +547,7 @@ function bindEvents() {
         if (!migrated || migrated.error) { alert(migrated ? migrated.error : 'JSON 数据无效'); return; }
         diagram = migrated;
         selectedId = null;
+        applyThemeVars(currentScheme().vars);   // 按导入图的配色恢复 CSS 变量，避免与旧方案混色
         persist(); render(); renderProps();
         alert('导入成功');
       } catch (err) { alert('JSON 解析失败：' + err.message); }
