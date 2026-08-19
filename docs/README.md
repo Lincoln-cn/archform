@@ -6,7 +6,8 @@
 |---|---|
 | [ROADMAP.md](ROADMAP.md) | 开发版本规划(项目定位、痛点背景、版本里程碑、模板路线、开源说明、设计边界)。**版本规划的单一事实来源**,后续迭代只更新本文档 |
 | [usage.md](usage.md) | 使用指南(中文):打开方式、使用步骤、板式、配色、数据管理、数据模型、已知限制 |
-| [../README.md](../README.md) | 项目根 README(GitHub 风格):定位、特性、截图、快速开始、GitHub Pages 部署、贡献 |
+| [../README.md](../README.md) | 项目根 README(英文):定位、特性、截图、快速开始、GitHub Pages 部署、贡献 |
+| [../README.zh-CN.md](../README.zh-CN.md) | 项目根 README(中文版),与英文版互相提供语言切换链接 |
 | [../templates.js](../templates.js) | 预置模板库(纯数据,可直接修改或参照新增) |
 | [images/](images/) | README 展示截图(编辑器界面与导出产物) |
 
