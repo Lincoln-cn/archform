@@ -1,0 +1,4 @@
+# 本地产物（不纳入版本管理）
+.mimocode/
+node_modules/
+*.log
