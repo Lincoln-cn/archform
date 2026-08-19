@@ -293,6 +293,18 @@
   #toolbar button:hover{background:#3a4d63}
   #toolbar button.primary{background:#2379bd;border-color:#2379bd}
   #toolbar button.primary:hover{background:#1a5c94}
+  /* GitHub 快速导航(纯文字链接,不加载任何外部资源) */
+  #toolbar .tb-sep{width:1px;height:20px;background:#46586d;margin:0 2px}
+  #toolbar .gh-link{
+    display:inline-flex;align-items:center;gap:6px;
+    border:1px solid #46586d;border-radius:3px;background:#2b3b4d;color:#e6edf5;
+    padding:4px 12px;font-size:13px;text-decoration:none;cursor:pointer;font-family:inherit;
+  }
+  #toolbar .gh-link .gh-ico{flex:none;opacity:.9}
+  #toolbar .gh-link:hover{background:#3a4d63;color:#fff}
+  #toolbar .gh-star{border-color:#b7791f;color:#f6c445}
+  #toolbar .gh-star:hover{background:#4a3a1a;color:#fde68a}
+  #toolbar .gh-fork{border-color:#46586d}
   #toolbar .spacer{flex:1}
   /* 下拉菜单 */
   #toolbar .menu{position:relative}
@@ -450,6 +462,10 @@
   <button type="button" id="btnFit">适应</button>
   <button type="button" id="btnAddLayer" class="primary">+ 新增层</button>
   <button type="button" id="btnExport" class="primary">导出PNG</button>
+  <span class="tb-sep"></span>
+  <a class="gh-link" href="https://github.com/Lincoln-cn/archform" target="_blank" rel="noopener" title="GitHub 仓库"><svg class="gh-ico" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>GitHub</a>
+  <a class="gh-link gh-star" href="https://github.com/Lincoln-cn/archform/stargazers" target="_blank" rel="noopener" title="在 GitHub 上点赞支持">★ Star</a>
+  <a class="gh-link gh-fork" href="https://github.com/Lincoln-cn/archform/fork" target="_blank" rel="noopener" title="Fork 到你的账号">⑂ Fork</a>
   <input type="file" id="fileJson" accept=".json" style="display:none">
 </div>
 <div id="app">
