@@ -234,7 +234,7 @@ function exportJson() {
 
 function loadJsonFile() { document.getElementById('fileJson').click(); }
 
-/* ================= 从 Excel/CSV 粘贴 ================= */
+/* ================= 粘贴数据（带格式化编辑器 + 树形预览） ================= */
 function showPasteModal() {
   const old = document.getElementById('pasteModal');
   if (old) old.remove();
@@ -242,15 +242,20 @@ function showPasteModal() {
   overlay.id = 'pasteModal';
   overlay.className = 'paste-overlay';
   overlay.innerHTML =
-    '<div class="paste-dialog">' +
-      '<div class="paste-title">从 Excel 粘贴数据</div>' +
-      '<div class="paste-hint">' +
-        '<b>方式一 · 缩进层级</b>（推荐，用空格或 Tab 缩进表示层级）<br>' +
-        '<code style="font-size:11px;background:#f0f4f8;padding:2px 6px;border-radius:2px">层名称<br>&nbsp;&nbsp;分组名称<br>&nbsp;&nbsp;&nbsp;&nbsp;模块名称<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;条目1, 条目2</code><br><br>' +
-        '<b>方式二 · 表格列</b>（Excel 复制，Tab 分隔：A=层, B=分组, C=模块, D=条目）' +
+    '<div class="paste-dialog" id="pasteDialog">' +
+      '<div class="paste-title" id="pasteDialogTitle">粘贴数据<span style="font-size:12px;color:#8a9fb5;margin-left:10px;font-weight:400">支持缩进层级或 Excel 表格粘贴</span></div>' +
+      '<div class="paste-toolbar">' +
+        '<button type="button" id="pasteFormat" class="ptb-btn" title="自动对齐缩进">格式化</button>' +
+        '<button type="button" id="pasteTabIn" class="ptb-btn" title="Tab 增加缩进">Tab &rarr;</button>' +
+        '<button type="button" id="pasteTabOut" class="ptb-btn" title="Shift+Tab 减少缩进">&larr; Tab</button>' +
+        '<span class="ptb-sep"></span>' +
+        '<span class="ptb-hint">缩进规则：depth 0=层 &middot; 1=分组 &middot; 2=模块 &middot; 3=条目</span>' +
       '</div>' +
-      '<textarea id="pasteArea" class="paste-textarea" rows="14" placeholder="在此处 Ctrl+V 粘贴数据..."></textarea>' +
-      '<div class="paste-preview" id="pastePreview"></div>' +
+      '<textarea id="pasteArea" class="paste-textarea" spellcheck="false" placeholder="在此粘贴数据…\n\n缩进格式示例：\n展示层\n  前端组件\n    登录页面\n      用户名,密码,验证码\n\n或从 Excel 复制表格粘贴（自动转换）"></textarea>' +
+      '<div class="paste-tree-wrap">' +
+        '<div class="paste-tree-title">结构预览</div>' +
+        '<div id="pasteTree" class="paste-tree"></div>' +
+      '</div>' +
       '<div class="paste-actions">' +
         '<button type="button" id="pasteAppend" class="paste-btn primary">追加到当前图</button>' +
         '<button type="button" id="pasteReplace" class="paste-btn">替换当前图</button>' +
@@ -258,15 +263,156 @@ function showPasteModal() {
       '</div>' +
     '</div>';
   document.body.appendChild(overlay);
-  document.getElementById('pasteArea').focus();
-  document.getElementById('pasteArea').addEventListener('input', updatePastePreview);
+  const area = document.getElementById('pasteArea');
+  area.addEventListener('input', () => updatePastePreview());
+  document.getElementById('pasteFormat').addEventListener('click', formatPasteText);
+  document.getElementById('pasteTabIn').addEventListener('click', () => indentSelection(false));
+  document.getElementById('pasteTabOut').addEventListener('click', () => indentSelection(true));
   document.getElementById('pasteCancel').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-  document.addEventListener('keydown', function escHandler(e) {
-    if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
-  });
   document.getElementById('pasteAppend').addEventListener('click', () => doPaste(false));
   document.getElementById('pasteReplace').addEventListener('click', () => doPaste(true));
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  area.addEventListener('keydown', e => {
+    if (e.key === 'Tab') { e.preventDefault(); indentSelection(e.shiftKey); }
+    if (e.key === 'Escape') { overlay.remove(); }
+  });
+  // 粘贴时自动检测 TSV → 转缩进
+  area.addEventListener('paste', e => {
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (text && detectPasteFormat(text) === 'tsv') {
+      e.preventDefault();
+      const converted = tsvToIndented(text);
+      const start = area.selectionStart;
+      area.value = area.value.substring(0, start) + converted + area.value.substring(area.selectionEnd);
+      area.selectionStart = area.selectionEnd = start + converted.length;
+      updatePastePreview();
+    }
+  });
+  makeDraggable(document.getElementById('pasteDialog'), document.getElementById('pasteDialogTitle'));
+  area.focus();
+  updatePastePreview();
+}
+
+/* ---- 弹窗拖拽移动 ---- */
+function makeDraggable(dialog, handle) {
+  let dx = 0, dy = 0, dragging = false;
+  handle.style.cursor = 'move';
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    dx = e.clientX - dialog.offsetLeft;
+    dy = e.clientY - dialog.offsetTop;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    dialog.style.left = (e.clientX - dx) + 'px';
+    dialog.style.top = (e.clientY - dy) + 'px';
+    dialog.style.margin = '0';
+    dialog.style.position = 'absolute';
+  });
+  document.addEventListener('mouseup', () => { dragging = false; });
+}
+
+/* ---- TSV → 缩进自动转换 ---- */
+function tsvToIndented(text) {
+  const lines = text.trim().split(/\r?\n/);
+  let lastA = '', lastB = '', lastC = '';
+  const out = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols = line.split('\t');
+    const a = (cols[0] || '').trim();
+    const b = (cols[1] || '').trim();
+    const c = (cols[2] || '').trim();
+    const d = (cols[3] || '').trim();
+    if (a) lastA = a;
+    if (b) lastB = b;
+    if (c) lastC = c;
+    if (a && !b && !c && !d) {
+      out.push(a);
+    } else if (b && !c && !d) {
+      if (a) out.push(a);
+      out.push('  ' + b);
+    } else if (c || d) {
+      if (a) out.push(a);
+      if (b) out.push('  ' + b);
+      if (c) out.push('    ' + c);
+      if (d) out.push('      ' + d);
+    }
+  }
+  return out.join('\n');
+}
+
+/* ---- 格式化：统一缩进为 2 空格 ---- */
+function formatPasteText() {
+  const area = document.getElementById('pasteArea');
+  let text = area.value;
+  if (detectPasteFormat(text) === 'tsv') text = tsvToIndented(text);
+  const lines = text.split(/\r?\n/);
+  const formatted = lines.map(raw => {
+    if (!raw.trim()) return '';
+    let depth = 0, i = 0;
+    while (i < raw.length) {
+      if (raw[i] === '\t') { depth++; i++; }
+      else if (raw[i] === ' ') { let sp = 0; while (i < raw.length && raw[i] === ' ') { sp++; i++; } depth += Math.round(sp / 2); }
+      else break;
+    }
+    return '  '.repeat(depth) + raw.trim();
+  }).join('\n');
+  area.value = formatted;
+  updatePastePreview();
+}
+
+/* ---- Tab / Shift+Tab 缩进选中行 ---- */
+function indentSelection(outdent) {
+  const area = document.getElementById('pasteArea');
+  const start = area.selectionStart;
+  const end = area.selectionEnd;
+  const val = area.value;
+  const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+  let lineEnd = val.indexOf('\n', end);
+  if (lineEnd < 0) lineEnd = val.length;
+  const block = val.substring(lineStart, lineEnd);
+  const lines = block.split('\n');
+  const newLines = lines.map(line => {
+    if (outdent) {
+      if (line.startsWith('  ')) return line.substring(2);
+      if (line.startsWith(' ')) return line.substring(1);
+      if (line.startsWith('\t')) return line.substring(1);
+      return line;
+    }
+    return '  ' + line;
+  });
+  const newBlock = newLines.join('\n');
+  area.value = val.substring(0, lineStart) + newBlock + val.substring(lineEnd);
+  area.selectionStart = start + (outdent ? -Math.min(2, start - lineStart) : 2);
+  area.selectionEnd = end + (newBlock.length - block.length);
+  updatePastePreview();
+}
+
+/* ---- 树形预览 ---- */
+function renderPasteTree(d) {
+  if (!d || !d.layers.length) return '<div class="pt-empty">未识别到有效结构</div>';
+  return d.layers.map(l => {
+    const gc = l.groups.length;
+    const bc = l.groups.reduce((s, g) => s + g.blocks.length, 0);
+    let html = '<div class="pt-layer"><span class="pt-ico">&#9638;</span><b>' + esc(l.name) + '</b>' +
+               ' <span class="pt-cnt">' + gc + ' 分组 &middot; ' + bc + ' 模块</span>';
+    for (const g of l.groups) {
+      html += '<div class="pt-group"><span class="pt-ico">&#9636;</span>' + esc(g.title) +
+              ' <span class="pt-cnt">' + g.blocks.length + ' 模块</span></div>';
+    }
+    return html + '</div>';
+  }).join('');
+}
+
+function updatePastePreview() {
+  const area = document.getElementById('pasteArea');
+  const tree = document.getElementById('pasteTree');
+  if (!area || !tree) return;
+  const text = area.value;
+  if (!text.trim()) { tree.innerHTML = '<div class="pt-empty">粘贴数据后在此预览结构</div>'; return; }
+  tree.innerHTML = renderPasteTree(parsePaste(text));
 }
 
 /* ---- 格式检测：缩进层级 vs 表格列 ---- */
@@ -376,21 +522,6 @@ function parsePaste(text) {
   return detectPasteFormat(text) === 'tsv'
     ? buildDiagramFromTsv(parseTsvRows(text))
     : parseIndented(text);
-}
-
-function updatePastePreview() {
-  const text = document.getElementById('pasteArea').value;
-  const preview = document.getElementById('pastePreview');
-  if (!text.trim()) { preview.textContent = ''; return; }
-  const fmt = detectPasteFormat(text);
-  const tmp = parsePaste(text);
-  const totalBlocks = tmp.layers.reduce((s, l) => s + l.groups.reduce((s2, g) => s2 + g.blocks.length, 0), 0);
-  const stats = tmp.layers.map(l =>
-    l.name + '（' + l.groups.length + ' 分组 · ' +
-    l.groups.reduce((s, g) => s + g.blocks.length, 0) + ' 模块）'
-  ).join('、');
-  const fmtLabel = fmt === 'tsv' ? '表格列模式' : '缩进层级模式';
-  preview.innerHTML = '<b>[' + fmtLabel + ']</b> 识别到 ' + tmp.layers.length + ' 层 · ' + totalBlocks + ' 模块：' + esc(stats);
 }
 
 function doPaste(replace) {
