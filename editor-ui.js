@@ -236,7 +236,6 @@ function loadJsonFile() { document.getElementById('fileJson').click(); }
 
 /* ================= 从 Excel/CSV 粘贴 ================= */
 function showPasteModal() {
-  // 移除已有弹窗
   const old = document.getElementById('pasteModal');
   if (old) old.remove();
   const overlay = document.createElement('div');
@@ -244,9 +243,13 @@ function showPasteModal() {
   overlay.className = 'paste-overlay';
   overlay.innerHTML =
     '<div class="paste-dialog">' +
-      '<div class="paste-title">从 Excel 粘贴表格数据</div>' +
-      '<div class="paste-hint">从 Excel 复制后，在下方粘贴（Ctrl+V）。列顺序：A=层名称，B=分组，C=模块，D=条目（逗号/顿号分隔）</div>' +
-      '<textarea id="pasteArea" class="paste-textarea" rows="12" placeholder="在此处 Ctrl+V 粘贴 Excel 数据..."></textarea>' +
+      '<div class="paste-title">从 Excel 粘贴数据</div>' +
+      '<div class="paste-hint">' +
+        '<b>方式一 · 缩进层级</b>（推荐，用空格或 Tab 缩进表示层级）<br>' +
+        '<code style="font-size:11px;background:#f0f4f8;padding:2px 6px;border-radius:2px">层名称<br>&nbsp;&nbsp;分组名称<br>&nbsp;&nbsp;&nbsp;&nbsp;模块名称<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;条目1, 条目2</code><br><br>' +
+        '<b>方式二 · 表格列</b>（Excel 复制，Tab 分隔：A=层, B=分组, C=模块, D=条目）' +
+      '</div>' +
+      '<textarea id="pasteArea" class="paste-textarea" rows="14" placeholder="在此处 Ctrl+V 粘贴数据..."></textarea>' +
       '<div class="paste-preview" id="pastePreview"></div>' +
       '<div class="paste-actions">' +
         '<button type="button" id="pasteAppend" class="paste-btn primary">追加到当前图</button>' +
@@ -256,7 +259,6 @@ function showPasteModal() {
     '</div>';
   document.body.appendChild(overlay);
   document.getElementById('pasteArea').focus();
-  // 实时预览
   document.getElementById('pasteArea').addEventListener('input', updatePastePreview);
   document.getElementById('pasteCancel').addEventListener('click', () => overlay.remove());
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
@@ -267,24 +269,92 @@ function showPasteModal() {
   document.getElementById('pasteReplace').addEventListener('click', () => doPaste(true));
 }
 
+/* ---- 格式检测：缩进层级 vs 表格列 ---- */
+function detectPasteFormat(text) {
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if (lines.length === 0) return 'indent'; // 默认
+  // 如果超过一半的行有 2+ 个 tab 分隔的非空列 → 表格模式
+  let tabCols = 0;
+  for (const line of lines.slice(0, 10)) {
+    const parts = line.split('\t');
+    const nonEmpty = parts.filter(p => p.trim()).length;
+    if (nonEmpty >= 2) tabCols++;
+  }
+  return tabCols > lines.slice(0, 10).length / 2 ? 'tsv' : 'indent';
+}
+
+/* ---- 缩进层级解析 ---- */
+function parseIndented(text) {
+  const lines = text.split(/\r?\n/);
+  const result = { layers: [] };
+  let curLayer = null, curGroup = null;
+
+  for (const raw of lines) {
+    if (!raw.trim()) continue;
+    // 计算缩进：Tab 算 2 级，每 2 个空格算 1 级
+    let depth = 0;
+    let i = 0;
+    while (i < raw.length) {
+      if (raw[i] === '\t') { depth++; i++; }
+      else if (raw[i] === ' ') {
+        let sp = 0;
+        while (i < raw.length && raw[i] === ' ') { sp++; i++; }
+        depth += Math.round(sp / 2); // 每 2 空格一级
+      } else break;
+    }
+    const text = raw.trim();
+    if (!text) continue;
+
+    if (depth === 0) {
+      // 层
+      curLayer = { id: uid(), name: text, bandColor: '#2379bd', cols: 3, groups: [] };
+      result.layers.push(curLayer);
+      curGroup = null;
+    } else if (depth === 1) {
+      // 分组
+      if (!curLayer) { curLayer = { id: uid(), name: '未命名层', bandColor: '#2379bd', cols: 3, groups: [] }; result.layers.push(curLayer); }
+      curGroup = { id: uid(), title: text, blocks: [] };
+      curLayer.groups.push(curGroup);
+    } else if (depth === 2) {
+      // 模块
+      if (!curGroup) {
+        if (!curLayer) { curLayer = { id: uid(), name: '未命名层', bandColor: '#2379bd', cols: 3, groups: [] }; result.layers.push(curLayer); }
+        curGroup = { id: uid(), title: '未命名分组', blocks: [] };
+        curLayer.groups.push(curGroup);
+      }
+      curGroup.blocks.push({ id: uid(), title: text, items: [], span: null });
+    } else {
+      // 条目（depth >= 3），附加到当前分组最后一个模块
+      if (!curGroup || curGroup.blocks.length === 0) continue;
+      const block = curGroup.blocks[curGroup.blocks.length - 1];
+      // 一行可能包含多个条目（逗号/顿号分隔）
+      const items = text.split(/[,，、;/]+/).map(s => s.trim()).filter(Boolean);
+      block.items.push(...items);
+    }
+  }
+  result.schemaVersion = 1;
+  result.title = '粘贴导入';
+  result.subtitle = '';
+  result.layout = 'layered';
+  return result;
+}
+
+/* ---- 表格列解析（兼容旧格式） ---- */
 function parseTsvRows(text) {
   return text.trim().split(/\r?\n/).filter(l => l.trim()).map(row => row.split('\t'));
 }
 
-function buildDiagramFromRows(rows) {
-  // 按 A(层) → B(分组) → C(模块) → D(条目) 映射
-  // 合并单元格复制时后续行的 A/B 列为空，需要向下填充
-  const layerMap = new Map(); // name → { id, name, bandColor, groups: Map }
-  let order = 0;
-  let lastLayer = '', lastGroup = '';
+function buildDiagramFromTsv(rows) {
+  const layerMap = new Map();
+  let order = 0, lastLayer = '', lastGroup = '';
   for (const cols of rows) {
     const rawLayer = (cols[0] || '').trim();
     const rawGroup = (cols[1] || '').trim();
     const blockName = (cols[2] || '').trim();
     const itemsRaw  = (cols[3] || '').trim();
-    if (rawLayer) lastLayer = rawLayer;   // 有值时更新，空时沿用上一行
+    if (rawLayer) lastLayer = rawLayer;
     if (rawGroup) lastGroup = rawGroup;
-    if (!lastLayer && !lastGroup && !blockName) continue; // 跳过纯空行
+    if (!lastLayer && !lastGroup && !blockName) continue;
     const ln = lastLayer || '未命名层';
     const gn = lastGroup || '未命名分组';
     const bn = blockName || '未命名模块';
@@ -299,52 +369,49 @@ function buildDiagramFromRows(rows) {
     id: l.id, name: l.name, bandColor: l.bandColor, cols: l.cols,
     groups: [...l.groups.values()]
   }));
-  return {
-    schemaVersion: 1, title: '粘贴导入', subtitle: '',
-    layout: 'layered', layers
-  };
+  return { schemaVersion: 1, title: '粘贴导入', subtitle: '', layout: 'layered', layers };
+}
+
+function parsePaste(text) {
+  return detectPasteFormat(text) === 'tsv'
+    ? buildDiagramFromTsv(parseTsvRows(text))
+    : parseIndented(text);
 }
 
 function updatePastePreview() {
   const text = document.getElementById('pasteArea').value;
   const preview = document.getElementById('pastePreview');
   if (!text.trim()) { preview.textContent = ''; return; }
-  const rows = parseTsvRows(text);
-  const tmp = buildDiagramFromRows(rows);
+  const fmt = detectPasteFormat(text);
+  const tmp = parsePaste(text);
+  const totalBlocks = tmp.layers.reduce((s, l) => s + l.groups.reduce((s2, g) => s2 + g.blocks.length, 0), 0);
   const stats = tmp.layers.map(l =>
     l.name + '（' + l.groups.length + ' 分组 · ' +
     l.groups.reduce((s, g) => s + g.blocks.length, 0) + ' 模块）'
   ).join('、');
-  preview.textContent = '识别到 ' + rows.length + ' 行数据：' + stats;
+  const fmtLabel = fmt === 'tsv' ? '表格列模式' : '缩进层级模式';
+  preview.innerHTML = '<b>[' + fmtLabel + ']</b> 识别到 ' + tmp.layers.length + ' 层 · ' + totalBlocks + ' 模块：' + esc(stats);
 }
 
 function doPaste(replace) {
   const text = document.getElementById('pasteArea').value;
   if (!text.trim()) { alert('请先粘贴数据'); return; }
-  const rows = parseTsvRows(text);
-  if (rows.length === 0) { alert('未识别到有效数据'); return; }
-  const imported = buildDiagramFromRows(rows);
+  const imported = parsePaste(text);
+  if (imported.layers.length === 0) { alert('未识别到有效数据'); return; }
   pushUndo();
   if (replace) {
     diagram = imported;
   } else {
-    // 追加：按层名称合并
     if (!diagram) diagram = newDiagram();
     for (const newLayer of imported.layers) {
       const existLayer = diagram.layers.find(l => l.name === newLayer.name);
       if (existLayer) {
-        // 合并分组
         for (const newGroup of newLayer.groups) {
           const existGroup = existLayer.groups.find(g => g.title === newGroup.title);
-          if (existGroup) {
-            existGroup.blocks.push(...newGroup.blocks);
-          } else {
-            existLayer.groups.push(newGroup);
-          }
+          if (existGroup) { existGroup.blocks.push(...newGroup.blocks); }
+          else { existLayer.groups.push(newGroup); }
         }
-      } else {
-        diagram.layers.push(newLayer);
-      }
+      } else { diagram.layers.push(newLayer); }
     }
   }
   selectedId = null;
