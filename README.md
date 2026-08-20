@@ -27,10 +27,14 @@ Layered architecture diagrams are roughly 90% nested structure — **Layer → G
 
 ## Features
 
-- **Structured input** — edit a four-level tree (Diagram → Layer → Group → Block → Item) with inline properties; click any block on the canvas to edit it
+- **Structured input** — edit a four-level tree (Diagram → Layer → Group → Block → Item); a quick-add bar at the bottom of the tree types nodes with Enter / Tab / Shift+Tab, and a right-click context menu covers new / copy / paste / move up / move down / delete
+- **Undo / redo** — 50-step history across every edit (structure, properties, color schemes, template loads), Ctrl+Z / Ctrl+Shift+Z
 - **Automatic layout** — three paradigms over the same data, switchable without losing anything: *layered*, *central core*, and *cards grid*
 - **Enforced style spec** — dashed panels, 2px corners, fixed type scale; six preset color schemes plus a custom six-shade palette, saved with the diagram (pillar bars included)
 - **Built for architecture reviews** — a bottom legend bar and right-side pillar bars for cross-cutting concerns such as security, operations, and governance
+- **Bulk input from text** — File → **From Text** turns indented text into a whole diagram with a live structure preview; no need to hand-drag boxes
+- **Copy & paste structure** — deep-clone any layer / group / block (Ctrl+C / Ctrl+V); pasted copies keep the same shape with fresh IDs, inserted as a sibling or child depending on the target
+- **Auto statistics** — each layer shows its group / block / item counts automatically (toggleable per layer)
 - **Fully offline** — export vector **SVG**, high-resolution **PNG** (2×), or a standalone **HTML** file with embedded vector data; zero network requests, zero runtime dependencies, double-click `file://` to run
 - **Versioned data** — every diagram carries a `schemaVersion` and is auto-migrated on load (`migrateDiagram`); JSON import/export plus `localStorage` autosave
 - **Five built-in templates** — Generic Layered, Overall Architecture, Application Architecture, Data Architecture (data-warehouse layering), and Technology Architecture
@@ -84,8 +88,9 @@ Templates are plain data in `templates.js` — copy the JSON structure to add yo
 .
 ├─ index.html           # Editor shell (inline style spec + page; double-click to run)
 ├─ editor-core.js       # State, node lookup, data versioning (migrateDiagram)
+├─ editor-tree.js       # Structure tree: render, node ops, quick-add, copy/paste, context menu
 ├─ editor-render.js     # Render engine: layered / central / cards
-├─ editor-ui.js         # Tree, property panel, color schemes, export (SVG/PNG/HTML), zoom
+├─ editor-ui.js         # Property panel, color schemes, export (SVG/PNG/HTML), zoom, events
 ├─ templates.js         # Built-in template library (plain data)
 ├─ docs/                # Public documentation (roadmap, usage guide)
 └─ LICENSE              # Apache-2.0
