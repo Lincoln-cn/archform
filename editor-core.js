@@ -5,6 +5,9 @@ let diagram = null;      // 当前图数据
 let selectedId = null;   // 选中节点 id
 const uid = () => Math.random().toString(36).slice(2, 9);
 const LS_KEY = 'arch-editor-data';
+/* 虚拟容器节点（结构树中代表右侧通栏 / 底部图例） */
+const SIDEBAR_ROOT = { id: '__sidebar', title: '右侧通栏（体系说明）' };
+const LEGEND_ROOT = { id: '__legend', title: '底部图例' };
 
 /* ================= 数据版本化 ================= */
 const SCHEMA_VERSION = 1;
@@ -203,3 +206,49 @@ function nodeName(node) {
 
 /* ================= 渲染引擎 ================= */
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ================= 缩进文本解析（从文本生成图） ================= */
+function parseIndented(text) {
+  const lines = text.split(/\r?\n/);
+  const result = { layers: [] };
+  let curLayer = null, curGroup = null;
+  for (const raw of lines) {
+    if (!raw.trim()) continue;
+    // 计算缩进：Tab 算 1 级，每 2 个空格算 1 级
+    let depth = 0, i = 0;
+    while (i < raw.length) {
+      if (raw[i] === '\t') { depth++; i++; }
+      else if (raw[i] === ' ') {
+        let sp = 0;
+        while (i < raw.length && raw[i] === ' ') { sp++; i++; }
+        depth += Math.round(sp / 2);
+      } else break;
+    }
+    const t = raw.trim();
+    if (!t) continue;
+    if (depth === 0) {
+      curLayer = { id: uid(), name: t, bandColor: '#2379bd', cols: 3, groups: [] };
+      result.layers.push(curLayer);
+      curGroup = null;
+    } else if (depth === 1) {
+      if (!curLayer) { curLayer = { id: uid(), name: '未命名层', bandColor: '#2379bd', cols: 3, groups: [] }; result.layers.push(curLayer); }
+      curGroup = { id: uid(), title: t, blocks: [] };
+      curLayer.groups.push(curGroup);
+    } else if (depth === 2) {
+      if (!curGroup) {
+        if (!curLayer) { curLayer = { id: uid(), name: '未命名层', bandColor: '#2379bd', cols: 3, groups: [] }; result.layers.push(curLayer); }
+        curGroup = { id: uid(), title: '未命名分组', blocks: [] }; curLayer.groups.push(curGroup);
+      }
+      curGroup.blocks.push({ id: uid(), title: t, items: [], span: null });
+    } else {
+      if (!curGroup || curGroup.blocks.length === 0) continue;
+      const block = curGroup.blocks[curGroup.blocks.length - 1];
+      block.items.push(...t.split(/[,，、;/]+/).map(s => s.trim()).filter(Boolean));
+    }
+  }
+  result.schemaVersion = 1;
+  result.title = (result.layers[0] && result.layers[0].name) || '未命名架构图';
+  result.subtitle = '';
+  result.layout = 'layered';
+  return result;
+}

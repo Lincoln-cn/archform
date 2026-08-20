@@ -415,13 +415,42 @@
   .empty-tip{color:#8a9fb5;font-size:12px;text-align:center;padding:20px 0}
   /* 树内快速录入 */
   .quick-add{position:sticky;bottom:0;background:#f7f9fc;border-top:1px solid #d8dee6;padding:8px 10px;z-index:10}
-  .qa-row{display:flex;align-items:center;gap:6px;border:1px solid #c3cdd9;border-radius:4px;background:#fff;padding:5px 8px}
-  .qa-row:focus-within{border-color:#2379bd;box-shadow:0 0 0 2px rgba(35,121,189,.15)}
-  .qa-ico{color:#2379bd;font-size:12px;flex:none}
+  .qa-row{display:flex;align-items:center;gap:7px;border:1px solid #c3cdd9;border-radius:5px;background:#fff;padding:6px 9px;transition:border-color .15s,box-shadow .15s}
+  .qa-row:focus-within{border-color:#2379bd;box-shadow:0 0 0 2px rgba(35,121,189,.12)}
+  .qa-ico{color:#2379bd;font-size:12px;flex:none;width:14px;text-align:center}
   .qa-input{border:none;outline:none;flex:1;font-size:13px;font-family:inherit;background:transparent}
-  .qa-hint{font-size:12px;color:#3a5b7d;padding:5px 0 0;line-height:1.6;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  .qa-hint .qa-tag{display:inline-block;background:#eef5fc;border:1px solid #b9d8f0;border-radius:3px;padding:1px 7px;font-size:11px;color:#1a5c94;font-weight:600;white-space:nowrap}
-  .qa-hint .qa-lvl{color:#2379bd;font-weight:700;font-size:13px}
+  .qa-now{font-size:11px;color:#5a7a9a;padding:5px 2px 0;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qa-now b{color:#2379bd;font-size:11px;font-weight:600}
+  .qa-keys{font-size:10px;color:#8a9fb5;padding:3px 2px 0;display:flex;align-items:center;gap:5px;white-space:nowrap}
+  .qa-keys kbd{background:#eef1f5;border:1px solid #d4dbe3;border-bottom-width:2px;border-radius:3px;padding:0 5px;font-family:inherit;font-size:10px;color:#4a5a6e}
+  .qa-keys i{color:#c3cdd9;font-style:normal}
+  /* 从文本生成图弹窗 */
+  .tg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center}
+  .tg-dialog{background:#fff;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.25);width:640px;max-width:92vw;max-height:85vh;display:flex;flex-direction:column;padding:22px 24px}
+  .tg-title{font-size:17px;font-weight:700;color:#1f2d3d;margin-bottom:6px}
+  .tg-hint{font-size:12px;color:#5a7a9a;margin-bottom:10px;line-height:1.6}
+  .tg-textarea{width:100%;border:1px solid #c3cdd9;border-radius:4px;padding:10px;font-size:13px;font-family:Consolas,"Courier New",monospace;resize:vertical;min-height:180px;box-sizing:border-box;line-height:1.6;tab-size:2}
+  .tg-textarea:focus{outline:none;border-color:#2379bd;box-shadow:0 0 0 2px rgba(35,121,189,.15)}
+  .tg-preview{border:1px solid #e3e8ef;border-radius:4px;margin-top:8px;max-height:180px;overflow:auto;background:#fafbfc;padding:8px 12px;font-size:12px;line-height:1.8;min-height:40px}
+  .tg-node{white-space:nowrap}
+  .tg-layer{margin-bottom:4px}
+  .tg-group{padding-left:22px}
+  .tg-ico{color:#2379bd;margin-right:4px}
+  .tg-cnt{font-size:11px;color:#8a9fb5;margin-left:4px}
+  .tg-empty{color:#8a9fb5;font-size:12px;text-align:center;padding:10px 0}
+  .tg-actions{display:flex;gap:8px;margin-top:12px}
+  .tg-btn{border:1px solid #b8c6d6;background:#fff;border-radius:4px;padding:8px 18px;font-size:13px;cursor:pointer;font-family:inherit}
+  .tg-btn:hover{background:#eef5fc}
+  .tg-btn.primary{background:#2379bd;color:#fff;border-color:#2379bd}
+  .tg-btn.primary:hover{background:#1a5c94}
+  /* 树右键菜单 */
+  .tree-ctx-menu{position:fixed;z-index:600;background:#fff;border:1px solid #d8dee6;border-radius:5px;box-shadow:0 6px 20px rgba(31,45,61,.18);padding:4px;min-width:130px}
+  .tree-ctx-menu button{display:block;width:100%;text-align:left;border:0;background:none;border-radius:3px;padding:6px 12px;font-size:13px;color:#26384a;cursor:pointer;font-family:inherit}
+  .tree-ctx-menu button:hover{background:#eef5fc}
+  .tree-ctx-menu button:disabled{color:#b0bec9;cursor:default}
+  .tree-ctx-menu button.danger{color:#e74c3c}
+  .tree-ctx-menu button.danger:hover{background:#fdecea}
+  .tree-ctx-menu hr{border:0;border-top:1px solid #e3e8ef;margin:4px 0}
 </style>
 <!-- ================= Google Analytics(GA4)统计(可选) =================
   默认关闭。启用方法:把下面 window.GA_MEASUREMENT_ID 改成你的 GA4 统计 ID(形如 G-XXXXXXXXXX)。
@@ -451,6 +480,7 @@
     <button type="button" class="menu-btn" data-menu="file">文件 ▾</button>
     <div class="menu-drop" id="menu-file">
       <button type="button" data-cmd="new">新建空白图</button>
+      <button type="button" data-cmd="text-gen">从文本生成图…</button>
       <button type="button" data-cmd="save">保存到本地</button>
       <hr>
       <button type="button" data-cmd="import">导入JSON…</button>
@@ -523,6 +553,7 @@
 <script src="templates.js"></script>
 
 <script src="editor-core.js"></script>
+<script src="editor-tree.js"></script>
 <script src="editor-render.js"></script>
 <script src="editor-ui.js"></script>
 </body>
