@@ -413,6 +413,19 @@
   }
   .btn-row button:hover{background:#eef5fc}
   .empty-tip{color:#8a9fb5;font-size:12px;text-align:center;padding:20px 0}
+  /* 粘贴弹窗 */
+  .paste-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center}
+  .paste-dialog{background:#fff;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.25);width:620px;max-width:90vw;max-height:85vh;display:flex;flex-direction:column;padding:24px}
+  .paste-title{font-size:18px;font-weight:700;color:#1f2d3d;margin-bottom:8px}
+  .paste-hint{font-size:12px;color:#5a7a9a;margin-bottom:12px;line-height:1.6}
+  .paste-textarea{width:100%;border:1px solid #c3cdd9;border-radius:4px;padding:10px;font-size:13px;font-family:monospace;resize:vertical;min-height:160px;box-sizing:border-box}
+  .paste-textarea:focus{outline:none;border-color:#2379bd;box-shadow:0 0 0 2px rgba(35,121,189,.15)}
+  .paste-preview{font-size:12px;color:#2379bd;min-height:18px;margin:8px 0}
+  .paste-actions{display:flex;gap:8px;margin-top:4px}
+  .paste-btn{border:1px solid #b8c6d6;background:#fff;border-radius:4px;padding:8px 18px;font-size:13px;cursor:pointer;font-family:inherit}
+  .paste-btn:hover{background:#eef5fc}
+  .paste-btn.primary{background:#2379bd;color:#fff;border-color:#2379bd}
+  .paste-btn.primary:hover{background:#1a5c94}
 </style>
 <!-- ================= Google Analytics(GA4)统计(可选) =================
   默认关闭。启用方法:把下面 window.GA_MEASUREMENT_ID 改成你的 GA4 统计 ID(形如 G-XXXXXXXXXX)。
@@ -456,6 +469,8 @@
     <div class="menu-drop" id="menu-edit">
       <button type="button" data-cmd="undo">撤销（Ctrl+Z）</button>
       <button type="button" data-cmd="redo">重做（Ctrl+Shift+Z）</button>
+      <hr>
+      <button type="button" data-cmd="paste-table">从 Excel 粘贴…</button>
     </div>
   </div>
   <div class="menu">

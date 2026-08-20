@@ -234,6 +234,121 @@ function exportJson() {
 
 function loadJsonFile() { document.getElementById('fileJson').click(); }
 
+/* ================= 从 Excel/CSV 粘贴 ================= */
+function showPasteModal() {
+  // 移除已有弹窗
+  const old = document.getElementById('pasteModal');
+  if (old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'pasteModal';
+  overlay.className = 'paste-overlay';
+  overlay.innerHTML =
+    '<div class="paste-dialog">' +
+      '<div class="paste-title">从 Excel 粘贴表格数据</div>' +
+      '<div class="paste-hint">从 Excel 复制后，在下方粘贴（Ctrl+V）。列顺序：A=层名称，B=分组，C=模块，D=条目（逗号/顿号分隔）</div>' +
+      '<textarea id="pasteArea" class="paste-textarea" rows="12" placeholder="在此处 Ctrl+V 粘贴 Excel 数据..."></textarea>' +
+      '<div class="paste-preview" id="pastePreview"></div>' +
+      '<div class="paste-actions">' +
+        '<button type="button" id="pasteAppend" class="paste-btn primary">追加到当前图</button>' +
+        '<button type="button" id="pasteReplace" class="paste-btn">替换当前图</button>' +
+        '<button type="button" id="pasteCancel" class="paste-btn">取消</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  document.getElementById('pasteArea').focus();
+  // 实时预览
+  document.getElementById('pasteArea').addEventListener('input', updatePastePreview);
+  document.getElementById('pasteCancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.addEventListener('keydown', function escHandler(e) {
+    if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
+  });
+  document.getElementById('pasteAppend').addEventListener('click', () => doPaste(false));
+  document.getElementById('pasteReplace').addEventListener('click', () => doPaste(true));
+}
+
+function parseTsvRows(text) {
+  return text.trim().split(/\r?\n/).filter(l => l.trim()).map(row => row.split('\t'));
+}
+
+function buildDiagramFromRows(rows) {
+  // 按 A(层) → B(分组) → C(模块) → D(条目) 映射
+  const layerMap = new Map(); // name → { id, name, bandColor, groups: Map }
+  let order = 0;
+  for (const cols of rows) {
+    const layerName = (cols[0] || '').trim();
+    const groupName = (cols[1] || '').trim();
+    const blockName = (cols[2] || '').trim();
+    const itemsRaw  = (cols[3] || '').trim();
+    if (!layerName && !groupName && !blockName) continue; // 跳过空行
+    const ln = layerName || '未命名层';
+    const gn = groupName || '未命名分组';
+    const bn = blockName || '未命名模块';
+    if (!layerMap.has(ln)) layerMap.set(ln, { id: uid(), name: ln, bandColor: '#2379bd', cols: 3, groups: new Map(), _order: order++ });
+    const layer = layerMap.get(ln);
+    if (!layer.groups.has(gn)) layer.groups.set(gn, { id: uid(), title: gn, blocks: [] });
+    const group = layer.groups.get(gn);
+    const items = itemsRaw ? itemsRaw.split(/[,，、;/]+/).map(s => s.trim()).filter(Boolean) : [];
+    group.blocks.push({ id: uid(), title: bn, items, span: null });
+  }
+  const layers = [...layerMap.values()].map(l => ({
+    id: l.id, name: l.name, bandColor: l.bandColor, cols: l.cols,
+    groups: [...l.groups.values()]
+  }));
+  return {
+    schemaVersion: 1, title: '粘贴导入', subtitle: '',
+    layout: 'layered', layers
+  };
+}
+
+function updatePastePreview() {
+  const text = document.getElementById('pasteArea').value;
+  const preview = document.getElementById('pastePreview');
+  if (!text.trim()) { preview.textContent = ''; return; }
+  const rows = parseTsvRows(text);
+  const tmp = buildDiagramFromRows(rows);
+  const stats = tmp.layers.map(l =>
+    l.name + '（' + l.groups.length + ' 分组 · ' +
+    l.groups.reduce((s, g) => s + g.blocks.length, 0) + ' 模块）'
+  ).join('、');
+  preview.textContent = '识别到 ' + rows.length + ' 行数据：' + stats;
+}
+
+function doPaste(replace) {
+  const text = document.getElementById('pasteArea').value;
+  if (!text.trim()) { alert('请先粘贴数据'); return; }
+  const rows = parseTsvRows(text);
+  if (rows.length === 0) { alert('未识别到有效数据'); return; }
+  const imported = buildDiagramFromRows(rows);
+  pushUndo();
+  if (replace) {
+    diagram = imported;
+  } else {
+    // 追加：按层名称合并
+    if (!diagram) diagram = newDiagram();
+    for (const newLayer of imported.layers) {
+      const existLayer = diagram.layers.find(l => l.name === newLayer.name);
+      if (existLayer) {
+        // 合并分组
+        for (const newGroup of newLayer.groups) {
+          const existGroup = existLayer.groups.find(g => g.title === newGroup.title);
+          if (existGroup) {
+            existGroup.blocks.push(...newGroup.blocks);
+          } else {
+            existLayer.groups.push(newGroup);
+          }
+        }
+      } else {
+        diagram.layers.push(newLayer);
+      }
+    }
+  }
+  selectedId = null;
+  document.getElementById('pasteModal').remove();
+  persist(); render(); renderProps();
+  alert('导入完成：' + imported.layers.length + ' 层');
+}
+
 /* ================= 缩放与预览 ================= */
 let zoom = 100;
 function applyZoom(v, skipFit) {
@@ -676,6 +791,7 @@ function bindEvents() {
       else if (cmd === 'zoom-100') applyZoom(100);
       else if (cmd === 'undo') undo();
       else if (cmd === 'redo') redo();
+      else if (cmd === 'paste-table') showPasteModal();
     });
   });
   document.addEventListener('click', e => {
