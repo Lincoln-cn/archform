@@ -9,6 +9,16 @@ function renderTree() {
   const tree = document.getElementById('tree');
   if (!diagram) { tree.innerHTML = ''; return; }
   tree.innerHTML = treeNode(diagram);
+  // 追加快速录入栏
+  const qa = document.createElement('div');
+  qa.innerHTML = renderQuickAdd();
+  tree.appendChild(qa.firstElementChild);
+  // 绑定快速录入事件
+  const input = document.getElementById('qaInput');
+  if (input) {
+    input.addEventListener('keydown', qaKeydown);
+    input.addEventListener('paste', qaPaste);
+  }
 }
 
 function treeChildren(node) {
@@ -144,6 +154,7 @@ function selectById(id) {
   renderTree();
   renderProps();
   highlightSel();
+  qaSyncFromSelection();
 }
 function highlightSel() {
   document.querySelectorAll('#captureArea [data-id]').forEach(el => {
@@ -234,188 +245,200 @@ function exportJson() {
 
 function loadJsonFile() { document.getElementById('fileJson').click(); }
 
-/* ================= 粘贴数据（带格式化编辑器 + 树形预览） ================= */
-function showPasteModal() {
-  const old = document.getElementById('pasteModal');
-  if (old) old.remove();
-  const overlay = document.createElement('div');
-  overlay.id = 'pasteModal';
-  overlay.className = 'paste-overlay';
-  overlay.innerHTML =
-    '<div class="paste-dialog" id="pasteDialog">' +
-      '<div class="paste-title" id="pasteDialogTitle">粘贴数据<span style="font-size:12px;color:#8a9fb5;margin-left:10px;font-weight:400">支持缩进层级或 Excel 表格粘贴</span></div>' +
-      '<div class="paste-toolbar">' +
-        '<button type="button" id="pasteFormat" class="ptb-btn" title="自动对齐缩进">格式化</button>' +
-        '<button type="button" id="pasteTabIn" class="ptb-btn" title="Tab 增加缩进">Tab &rarr;</button>' +
-        '<button type="button" id="pasteTabOut" class="ptb-btn" title="Shift+Tab 减少缩进">&larr; Tab</button>' +
-        '<span class="ptb-sep"></span>' +
-        '<span class="ptb-hint">缩进规则：depth 0=层 &middot; 1=分组 &middot; 2=模块 &middot; 3=条目</span>' +
-      '</div>' +
-      '<textarea id="pasteArea" class="paste-textarea" spellcheck="false" placeholder="在此粘贴数据…\n\n缩进格式示例：\n展示层\n  前端组件\n    登录页面\n      用户名,密码,验证码\n\n或从 Excel 复制表格粘贴（自动转换）"></textarea>' +
-      '<div class="paste-tree-wrap">' +
-        '<div class="paste-tree-title">结构预览</div>' +
-        '<div id="pasteTree" class="paste-tree"></div>' +
-      '</div>' +
-      '<div class="paste-actions">' +
-        '<button type="button" id="pasteAppend" class="paste-btn primary">追加到当前图</button>' +
-        '<button type="button" id="pasteReplace" class="paste-btn">替换当前图</button>' +
-        '<button type="button" id="pasteCancel" class="paste-btn">取消</button>' +
-      '</div>' +
+/* ================= 树内快速录入 ================= */
+const _qa = { level: 'layer', parentId: null, lastId: null };
+
+function renderQuickAdd() {
+  const ico = { layer: '&#9638;', group: '&#9636;', block: '&#9632;', item: '&#8226;' };
+  const label = { layer: '层', group: '分组', block: '模块', item: '条目' };
+  const ph = { layer: '输入层名称，回车确认', group: '输入分组名称', block: '输入模块名称', item: '输入条目（逗号分隔多个）' };
+  return '<div class="quick-add">' +
+    '<div class="qa-row">' +
+      '<span class="qa-ico">' + (ico[_qa.level] || '&#8226;') + '</span>' +
+      '<input id="qaInput" class="qa-input" type="text" placeholder="' + ph[_qa.level] + '" autocomplete="off">' +
+    '</div>' +
+    '<div class="qa-hint">层级: <b>' + label[_qa.level] + '</b> &nbsp; Enter 确认 &nbsp; Tab 下钻 &nbsp; Shift+Tab 上升 &nbsp; Esc 退出</div>' +
     '</div>';
-  document.body.appendChild(overlay);
-  const area = document.getElementById('pasteArea');
-  area.addEventListener('input', () => updatePastePreview());
-  document.getElementById('pasteFormat').addEventListener('click', formatPasteText);
-  document.getElementById('pasteTabIn').addEventListener('click', () => indentSelection(false));
-  document.getElementById('pasteTabOut').addEventListener('click', () => indentSelection(true));
-  document.getElementById('pasteCancel').addEventListener('click', () => overlay.remove());
-  document.getElementById('pasteAppend').addEventListener('click', () => doPaste(false));
-  document.getElementById('pasteReplace').addEventListener('click', () => doPaste(true));
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-  area.addEventListener('keydown', e => {
-    if (e.key === 'Tab') { e.preventDefault(); indentSelection(e.shiftKey); }
-    if (e.key === 'Escape') { overlay.remove(); }
-  });
-  // 粘贴时自动检测 TSV → 转缩进
-  area.addEventListener('paste', e => {
-    const text = (e.clipboardData || window.clipboardData).getData('text');
-    if (text && detectPasteFormat(text) === 'tsv') {
-      e.preventDefault();
-      const converted = tsvToIndented(text);
-      const start = area.selectionStart;
-      area.value = area.value.substring(0, start) + converted + area.value.substring(area.selectionEnd);
-      area.selectionStart = area.selectionEnd = start + converted.length;
-      updatePastePreview();
-    }
-  });
-  makeDraggable(document.getElementById('pasteDialog'), document.getElementById('pasteDialogTitle'));
-  area.focus();
-  updatePastePreview();
 }
 
-/* ---- 弹窗拖拽移动 ---- */
-function makeDraggable(dialog, handle) {
-  let dx = 0, dy = 0, dragging = false;
-  handle.style.cursor = 'move';
-  handle.addEventListener('mousedown', e => {
-    dragging = true;
-    dx = e.clientX - dialog.offsetLeft;
-    dy = e.clientY - dialog.offsetTop;
-    e.preventDefault();
-  });
-  document.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    dialog.style.left = (e.clientX - dx) + 'px';
-    dialog.style.top = (e.clientY - dy) + 'px';
-    dialog.style.margin = '0';
-    dialog.style.position = 'absolute';
-  });
-  document.addEventListener('mouseup', () => { dragging = false; });
+function qaUpdateHint() {
+  const el = document.querySelector('.qa-hint');
+  if (!el) return;
+  const ico = { layer: '&#9638;', group: '&#9636;', block: '&#9632;', item: '&#8226;' };
+  const label = { layer: '层', group: '分组', block: '模块', item: '条目' };
+  const ph = { layer: '输入层名称，回车确认', group: '输入分组名称', block: '输入模块名称', item: '输入条目（逗号分隔多个）' };
+  const icoEl = document.querySelector('.qa-ico');
+  if (icoEl) icoEl.innerHTML = ico[_qa.level] || '&#8226;';
+  const input = document.getElementById('qaInput');
+  if (input) input.placeholder = ph[_qa.level];
+  el.innerHTML = '层级: <b>' + label[_qa.level] + '</b> &nbsp; Enter 确认 &nbsp; Tab 下钻 &nbsp; Shift+Tab 上升 &nbsp; Esc 退出';
 }
 
-/* ---- TSV → 缩进自动转换 ---- */
-function tsvToIndented(text) {
-  const lines = text.trim().split(/\r?\n/);
-  let lastA = '', lastB = '', lastC = '';
-  const out = [];
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    const cols = line.split('\t');
-    const a = (cols[0] || '').trim();
-    const b = (cols[1] || '').trim();
-    const c = (cols[2] || '').trim();
-    const d = (cols[3] || '').trim();
-    if (a) lastA = a;
-    if (b) lastB = b;
-    if (c) lastC = c;
-    if (a && !b && !c && !d) {
-      out.push(a);
-    } else if (b && !c && !d) {
-      if (a) out.push(a);
-      out.push('  ' + b);
-    } else if (c || d) {
-      if (a) out.push(a);
-      if (b) out.push('  ' + b);
-      if (c) out.push('    ' + c);
-      if (d) out.push('      ' + d);
-    }
+function qaLevelDepth() {
+  return { layer: 0, group: 1, block: 2, item: 3 }[_qa.level] || 0;
+}
+
+function qaLevelFromNode(node) {
+  const t = nodeType(node);
+  if (t === 'layer') return 'group';
+  if (t === 'group') return 'block';
+  if (t === 'block') return 'item';
+  return 'layer';
+}
+
+function qaSyncFromSelection() {
+  if (!selectedId || !diagram) { _qa.level = 'layer'; _qa.parentId = null; _qa.lastId = null; return; }
+  const node = findNode(selectedId);
+  if (!node) return;
+  const t = nodeType(node);
+  if (t === 'layer') { _qa.level = 'group'; _qa.parentId = node.id; }
+  else if (t === 'group') { _qa.level = 'block'; _qa.parentId = node.id; }
+  else if (t === 'block') { _qa.level = 'item'; _qa.parentId = node.id; }
+  else { _qa.level = 'layer'; _qa.parentId = null; }
+  _qa.lastId = null;
+  qaUpdateHint();
+}
+
+function qaCommit() {
+  const input = document.getElementById('qaInput');
+  if (!input) return;
+  const val = input.value.trim();
+  if (!val) return;
+
+  // 检测多行粘贴
+  if (val.indexOf('\n') >= 0) {
+    qaBulkPaste(val);
+    input.value = '';
+    return;
   }
-  return out.join('\n');
+
+  if (!diagram) diagram = newDiagram();
+  pushUndo();
+
+  if (_qa.level === 'layer') {
+    const layer = { id: uid(), name: val, bandColor: '#2379bd', cols: 3, groups: [] };
+    diagram.layers.push(layer);
+    _qa.lastId = layer.id;
+    _qa.parentId = layer.id;
+    _qa.level = 'group';
+  } else if (_qa.level === 'group') {
+    const parent = _qa.parentId ? findNode(_qa.parentId) : null;
+    const layer = parent && nodeType(parent) === 'layer' ? parent : (diagram.layers[diagram.layers.length - 1]);
+    if (!layer) { alert('请先创建一个层'); return; }
+    const group = { id: uid(), title: val, blocks: [] };
+    layer.groups.push(group);
+    _qa.lastId = group.id;
+    _qa.parentId = group.id;
+    _qa.level = 'block';
+  } else if (_qa.level === 'block') {
+    const parent = _qa.parentId ? findNode(_qa.parentId) : null;
+    const group = parent && nodeType(parent) === 'group' ? parent : null;
+    if (!group) { alert('请先创建一个分组'); return; }
+    const block = { id: uid(), title: val, items: [], span: null };
+    group.blocks.push(block);
+    _qa.lastId = block.id;
+    _qa.parentId = block.id;
+    _qa.level = 'item';
+  } else if (_qa.level === 'item') {
+    const parent = _qa.parentId ? findNode(_qa.parentId) : null;
+    const block = parent && nodeType(parent) === 'block' ? parent : null;
+    if (!block) { alert('请先创建一个模块'); return; }
+    const items = val.split(/[,，、;/]+/).map(s => s.trim()).filter(Boolean);
+    block.items.push(...items);
+  }
+
+  input.value = '';
+  selectedId = _qa.lastId;
+  // 展开父节点
+  if (_qa.parentId) collapsed.delete(_qa.parentId);
+  persist(); render(); renderProps();
+  qaUpdateHint();
+  // 滚动到新节点
+  setTimeout(() => {
+    const sel = document.querySelector('.tree .tnode.sel');
+    if (sel) sel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, 50);
 }
 
-/* ---- 格式化：统一缩进为 2 空格 ---- */
-function formatPasteText() {
-  const area = document.getElementById('pasteArea');
-  let text = area.value;
-  if (detectPasteFormat(text) === 'tsv') text = tsvToIndented(text);
-  const lines = text.split(/\r?\n/);
-  const formatted = lines.map(raw => {
-    if (!raw.trim()) return '';
-    let depth = 0, i = 0;
-    while (i < raw.length) {
-      if (raw[i] === '\t') { depth++; i++; }
-      else if (raw[i] === ' ') { let sp = 0; while (i < raw.length && raw[i] === ' ') { sp++; i++; } depth += Math.round(sp / 2); }
-      else break;
+function qaBulkPaste(text) {
+  const parsed = parsePaste(text);
+  if (!parsed.layers.length) return;
+  pushUndo();
+  if (!diagram) diagram = newDiagram();
+  for (const nl of parsed.layers) {
+    const el = diagram.layers.find(l => l.name === nl.name);
+    if (el) {
+      for (const ng of nl.groups) {
+        const eg = el.groups.find(g => g.title === ng.title);
+        if (eg) eg.blocks.push(...ng.blocks); else el.groups.push(ng);
+      }
+    } else diagram.layers.push(nl);
+  }
+  _qa.level = 'layer'; _qa.parentId = null; _qa.lastId = null;
+  persist(); render(); renderProps();
+  qaUpdateHint();
+}
+
+function qaKeydown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    qaCommit();
+  } else if (e.key === 'Tab' && !e.shiftKey) {
+    e.preventDefault();
+    const depths = ['layer', 'group', 'block', 'item'];
+    const cur = depths.indexOf(_qa.level);
+    if (cur < depths.length - 1) {
+      // 如果有刚创建的节点，以其为父级下钻
+      if (_qa.lastId) {
+        _qa.parentId = _qa.lastId;
+        _qa.level = depths[cur + 1];
+      } else if (_qa.parentId) {
+        // 没有刚创建的，但有父节点，尝试在其下一级
+        const parent = findNode(_qa.parentId);
+        if (parent) {
+          _qa.level = qaLevelFromNode(parent);
+        }
+      }
+      qaUpdateHint();
     }
-    return '  '.repeat(depth) + raw.trim();
-  }).join('\n');
-  area.value = formatted;
-  updatePastePreview();
-}
-
-/* ---- Tab / Shift+Tab 缩进选中行 ---- */
-function indentSelection(outdent) {
-  const area = document.getElementById('pasteArea');
-  const start = area.selectionStart;
-  const end = area.selectionEnd;
-  const val = area.value;
-  const lineStart = val.lastIndexOf('\n', start - 1) + 1;
-  let lineEnd = val.indexOf('\n', end);
-  if (lineEnd < 0) lineEnd = val.length;
-  const block = val.substring(lineStart, lineEnd);
-  const lines = block.split('\n');
-  const newLines = lines.map(line => {
-    if (outdent) {
-      if (line.startsWith('  ')) return line.substring(2);
-      if (line.startsWith(' ')) return line.substring(1);
-      if (line.startsWith('\t')) return line.substring(1);
-      return line;
+  } else if (e.key === 'Tab' && e.shiftKey) {
+    e.preventDefault();
+    const depths = ['layer', 'group', 'block', 'item'];
+    const cur = depths.indexOf(_qa.level);
+    if (cur > 0) {
+      _qa.level = depths[cur - 1];
+      // 上升时，parentId 变为当前父节点的父节点
+      if (_qa.parentId) {
+        const parent = findNode(_qa.parentId);
+        if (parent) {
+          const grandparent = findParent(parent.id);
+          _qa.parentId = grandparent ? grandparent.id : null;
+        }
+      }
+      _qa.lastId = null;
+      qaUpdateHint();
     }
-    return '  ' + line;
-  });
-  const newBlock = newLines.join('\n');
-  area.value = val.substring(0, lineStart) + newBlock + val.substring(lineEnd);
-  area.selectionStart = start + (outdent ? -Math.min(2, start - lineStart) : 2);
-  area.selectionEnd = end + (newBlock.length - block.length);
-  updatePastePreview();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    const input = document.getElementById('qaInput');
+    if (input) input.value = '';
+    _qa.level = 'layer'; _qa.parentId = null; _qa.lastId = null;
+    qaUpdateHint();
+  }
 }
 
-/* ---- 树形预览 ---- */
-function renderPasteTree(d) {
-  if (!d || !d.layers.length) return '<div class="pt-empty">未识别到有效结构</div>';
-  return d.layers.map(l => {
-    const gc = l.groups.length;
-    const bc = l.groups.reduce((s, g) => s + g.blocks.length, 0);
-    let html = '<div class="pt-layer"><span class="pt-ico">&#9638;</span><b>' + esc(l.name) + '</b>' +
-               ' <span class="pt-cnt">' + gc + ' 分组 &middot; ' + bc + ' 模块</span>';
-    for (const g of l.groups) {
-      html += '<div class="pt-group"><span class="pt-ico">&#9636;</span>' + esc(g.title) +
-              ' <span class="pt-cnt">' + g.blocks.length + ' 模块</span></div>';
-    }
-    return html + '</div>';
-  }).join('');
+function qaPaste(e) {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  if (!text || text.indexOf('\n') < 0) return; // 单行不拦截
+  e.preventDefault();
+  const input = document.getElementById('qaInput');
+  if (input) {
+    input.value = text;
+    qaCommit();
+  }
 }
 
-function updatePastePreview() {
-  const area = document.getElementById('pasteArea');
-  const tree = document.getElementById('pasteTree');
-  if (!area || !tree) return;
-  const text = area.value;
-  if (!text.trim()) { tree.innerHTML = '<div class="pt-empty">粘贴数据后在此预览结构</div>'; return; }
-  tree.innerHTML = renderPasteTree(parsePaste(text));
-}
-
-/* ---- 格式检测：缩进层级 vs 表格列 ---- */
+/* ================= 解析函数（粘贴数据复用） ================= */
 function detectPasteFormat(text) {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
   if (lines.length === 0) return 'indent'; // 默认
@@ -522,33 +545,6 @@ function parsePaste(text) {
   return detectPasteFormat(text) === 'tsv'
     ? buildDiagramFromTsv(parseTsvRows(text))
     : parseIndented(text);
-}
-
-function doPaste(replace) {
-  const text = document.getElementById('pasteArea').value;
-  if (!text.trim()) { alert('请先粘贴数据'); return; }
-  const imported = parsePaste(text);
-  if (imported.layers.length === 0) { alert('未识别到有效数据'); return; }
-  pushUndo();
-  if (replace) {
-    diagram = imported;
-  } else {
-    if (!diagram) diagram = newDiagram();
-    for (const newLayer of imported.layers) {
-      const existLayer = diagram.layers.find(l => l.name === newLayer.name);
-      if (existLayer) {
-        for (const newGroup of newLayer.groups) {
-          const existGroup = existLayer.groups.find(g => g.title === newGroup.title);
-          if (existGroup) { existGroup.blocks.push(...newGroup.blocks); }
-          else { existLayer.groups.push(newGroup); }
-        }
-      } else { diagram.layers.push(newLayer); }
-    }
-  }
-  selectedId = null;
-  document.getElementById('pasteModal').remove();
-  persist(); render(); renderProps();
-  alert('导入完成：' + imported.layers.length + ' 层');
 }
 
 /* ================= 缩放与预览 ================= */
@@ -993,7 +989,6 @@ function bindEvents() {
       else if (cmd === 'zoom-100') applyZoom(100);
       else if (cmd === 'undo') undo();
       else if (cmd === 'redo') redo();
-      else if (cmd === 'paste-table') showPasteModal();
     });
   });
   document.addEventListener('click', e => {

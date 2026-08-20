@@ -413,31 +413,14 @@
   }
   .btn-row button:hover{background:#eef5fc}
   .empty-tip{color:#8a9fb5;font-size:12px;text-align:center;padding:20px 0}
-  /* 粘贴弹窗 */
-  .paste-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center}
-  .paste-dialog{background:#fff;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.25);width:900px;max-width:92vw;height:80vh;max-height:85vh;display:flex;flex-direction:column;padding:20px 24px;resize:both;overflow:auto}
-  .paste-title{font-size:17px;font-weight:700;color:#1f2d3d;margin-bottom:10px;user-select:none}
-  .paste-toolbar{display:flex;align-items:center;gap:6px;padding:6px 0;margin-bottom:8px;border-bottom:1px solid #e3e8ef}
-  .ptb-btn{border:1px solid #b8c6d6;background:#fff;border-radius:3px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit}
-  .ptb-btn:hover{background:#eef5fc}
-  .ptb-sep{width:1px;height:16px;background:#d8dee6;margin:0 6px}
-  .ptb-hint{font-size:11px;color:#8a9fb5}
-  .paste-textarea{width:100%;flex:1;border:1px solid #c3cdd9;border-radius:4px;padding:10px;font-size:13px;font-family:Consolas,"Courier New",monospace;resize:none;box-sizing:border-box;line-height:1.6;tab-size:2}
-  .paste-textarea:focus{outline:none;border-color:#2379bd;box-shadow:0 0 0 2px rgba(35,121,189,.15)}
-  .paste-tree-wrap{border:1px solid #e3e8ef;border-radius:4px;margin-top:8px;max-height:180px;overflow:auto;background:#fafbfc}
-  .paste-tree-title{font-size:11px;font-weight:700;color:#5a7a9a;padding:6px 10px;border-bottom:1px solid #e3e8ef}
-  .paste-tree{padding:8px 10px;font-size:12px;line-height:1.8}
-  .pt-layer{margin-bottom:6px}
-  .pt-layer>.pt-ico{color:#2379bd;margin-right:4px}
-  .pt-group{padding-left:20px}
-  .pt-group>.pt-ico{color:#5a7a9a;margin-right:3px}
-  .pt-cnt{font-size:11px;color:#8a9fb5;margin-left:4px}
-  .pt-empty{color:#8a9fb5;font-size:12px;padding:10px 0;text-align:center}
-  .paste-actions{display:flex;gap:8px;margin-top:10px}
-  .paste-btn{border:1px solid #b8c6d6;background:#fff;border-radius:4px;padding:8px 18px;font-size:13px;cursor:pointer;font-family:inherit}
-  .paste-btn:hover{background:#eef5fc}
-  .paste-btn.primary{background:#2379bd;color:#fff;border-color:#2379bd}
-  .paste-btn.primary:hover{background:#1a5c94}
+  /* 树内快速录入 */
+  .quick-add{position:sticky;bottom:0;background:#f7f9fc;border-top:1px solid #d8dee6;padding:8px 10px;z-index:10}
+  .qa-row{display:flex;align-items:center;gap:6px;border:1px solid #c3cdd9;border-radius:4px;background:#fff;padding:5px 8px}
+  .qa-row:focus-within{border-color:#2379bd;box-shadow:0 0 0 2px rgba(35,121,189,.15)}
+  .qa-ico{color:#2379bd;font-size:12px;flex:none}
+  .qa-input{border:none;outline:none;flex:1;font-size:13px;font-family:inherit;background:transparent}
+  .qa-hint{font-size:10px;color:#8a9fb5;padding:3px 0 0;line-height:1.4}
+  .qa-hint b{color:#2379bd}
 </style>
 <!-- ================= Google Analytics(GA4)统计(可选) =================
   默认关闭。启用方法:把下面 window.GA_MEASUREMENT_ID 改成你的 GA4 统计 ID(形如 G-XXXXXXXXXX)。
@@ -481,8 +464,6 @@
     <div class="menu-drop" id="menu-edit">
       <button type="button" data-cmd="undo">撤销（Ctrl+Z）</button>
       <button type="button" data-cmd="redo">重做（Ctrl+Shift+Z）</button>
-      <hr>
-      <button type="button" data-cmd="paste-table">粘贴数据…</button>
     </div>
   </div>
   <div class="menu">
