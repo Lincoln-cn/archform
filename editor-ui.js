@@ -251,7 +251,7 @@ const _qa = { level: 'layer', parentId: null, lastId: null };
 function renderQuickAdd() {
   const ico = { layer: '&#9638;', group: '&#9636;', block: '&#9632;', item: '&#8226;' };
   const label = { layer: '层', group: '分组', block: '模块', item: '条目' };
-  const ph = { layer: '输入层名称，回车确认', group: '输入分组名称', block: '输入模块名称', item: '输入条目（逗号分隔多个）' };
+  const ph = { layer: '输入名称回车确认（支持粘贴多行/Excel）', group: '输入分组名称', block: '输入模块名称', item: '输入条目（逗号分隔多个）' };
   return '<div class="quick-add">' +
     '<div class="qa-row">' +
       '<span class="qa-ico">' + (ico[_qa.level] || '&#8226;') + '</span>' +
@@ -270,7 +270,7 @@ function qaUpdateHint() {
   if (!el) return;
   const ico = { layer: '&#9638;', group: '&#9636;', block: '&#9632;', item: '&#8226;' };
   const label = { layer: '层', group: '分组', block: '模块', item: '条目' };
-  const ph = { layer: '输入层名称，回车确认', group: '输入分组名称', block: '输入模块名称', item: '输入条目（逗号分隔多个）' };
+  const ph = { layer: '输入名称回车确认（支持粘贴多行/Excel）', group: '输入分组名称', block: '输入模块名称', item: '输入条目（逗号分隔多个）' };
   const icoEl = document.querySelector('.qa-ico');
   if (icoEl) icoEl.innerHTML = ico[_qa.level] || '&#8226;';
   const input = document.getElementById('qaInput');
@@ -510,7 +510,7 @@ function parseIndented(text) {
     }
   }
   result.schemaVersion = 1;
-  result.title = '粘贴导入';
+  result.title = (result.layers[0] && result.layers[0].name) || '未命名架构图';
   result.subtitle = '';
   result.layout = 'layered';
   return result;
@@ -546,7 +546,7 @@ function buildDiagramFromTsv(rows) {
     id: l.id, name: l.name, bandColor: l.bandColor, cols: l.cols,
     groups: [...l.groups.values()]
   }));
-  return { schemaVersion: 1, title: '粘贴导入', subtitle: '', layout: 'layered', layers };
+  return { schemaVersion: 1, title: (layers[0] && layers[0].name) || '未命名架构图', subtitle: '', layout: 'layered', layers };
 }
 
 function parsePaste(text) {
