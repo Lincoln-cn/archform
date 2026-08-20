@@ -1,8 +1,26 @@
 /* ================= 内容树（渲染 / 节点操作 / 快速录入） ================= */
-const TREE_ICON = { diagram: '▣', layer: '▤', group: '▥', block: '▦', container: '▧', section: '▨', legend: '◉' };
 const TREE_LABEL = { diagram: '图', layer: '层', group: '分组', block: '模块', container: '区域', section: '分区', legend: '图例' };
 const collapsed = new Set();   // 已折叠的节点 id
 // SIDEBAR_ROOT / LEGEND_ROOT 定义在 editor-core.js（findNode 依赖）
+
+/* 节点类型图标（内联 SVG，零依赖） */
+const TREE_ICON_SVG = {
+  diagram:   '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="12" height="12" rx="2"/><rect x="5.5" y="5.5" width="5" height="5" rx="1"/></svg>',
+  layer:     '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4h12M2 8h12M2 12h8"/></svg>',
+  group:     '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="2.5" width="5.5" height="5.5" rx="1"/><rect x="8" y="8" width="5.5" height="5.5" rx="1"/></svg>',
+  block:     '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>',
+  container: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="12" height="12" rx="2"/><rect x="6" y="6" width="4" height="4" rx=".5"/></svg>',
+  section:   '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 4h10M3 8h10M3 12h10"/></svg>',
+  legend:    '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><circle cx="8" cy="8" r="3.5"/></svg>'
+};
+
+/* 操作按钮图标（内联 SVG） */
+const ACT_SVG = {
+  plus:  '<svg viewBox="0 0 12 12" width="12" height="12"><path d="M6 2.5v7M2.5 6h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>',
+  up:    '<svg viewBox="0 0 12 12" width="12" height="12"><path d="M6 9.5v-7M3 5.5 6 2.5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
+  down:  '<svg viewBox="0 0 12 12" width="12" height="12"><path d="M6 2.5v7M3 6.5 6 9.5l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
+  close: '<svg viewBox="0 0 12 12" width="12" height="12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>'
+};
 
 function renderTree() {
   const tree = document.getElementById('tree');
@@ -36,18 +54,22 @@ function treeNode(node) {
   const kids = treeChildren(node);
   const isCollapsed = collapsed.has(node.id);
   const hasKids = kids && kids.length;
-  const caret = hasKids ? '<span class="caret" title="展开/折叠">' + (isCollapsed ? '▶' : '▼') + '</span>' : '<span class="caret"></span>';
+  // 展开/折叠箭头：CSS 伪元素绘制，open = 展开态（向下），默认 = 折叠态（向右）
+  const caret = hasKids
+    ? '<span class="caret' + (isCollapsed ? '' : ' open') + '" title="展开/折叠"></span>'
+    : '<span class="caret leaf"></span>';
   let childrenHtml = '';
   if (hasKids && !isCollapsed) {
     childrenHtml = '<ul>' + kids.map(k => treeNode(k)).join('') + '</ul>';
   }
-  const actAdd = t === 'diagram' || t === 'layer' || t === 'group' || t === 'container' ? '<button title="新增子项" data-act="add">+</button>' : '';
-  const actUp = '<button title="上移" data-act="up">↑</button>';
-  const actDown = '<button title="下移" data-act="down">↓</button>';
-  const actDel = '<button title="删除" data-act="del">×</button>';
+  const actAdd = t === 'diagram' || t === 'layer' || t === 'group' || t === 'container'
+    ? '<button class="abtn" title="新增子项" data-act="add">' + ACT_SVG.plus + '</button>' : '';
+  const actUp = '<button class="abtn" title="上移" data-act="up">' + ACT_SVG.up + '</button>';
+  const actDown = '<button class="abtn" title="下移" data-act="down">' + ACT_SVG.down + '</button>';
+  const actDel = '<button class="abtn danger" title="删除" data-act="del">' + ACT_SVG.close + '</button>';
   return '<li>' +
     '<div class="tnode' + sel + '" data-id="' + node.id + '">' +
-    caret + '<span class="ico">' + (TREE_ICON[t] || '•') + '</span>' +
+    caret + '<span class="ico t-' + t + '">' + (TREE_ICON_SVG[t] || '') + '</span>' +
     '<span class="txt">' + esc(nodeName(node)) + '</span>' +
     '<span class="act">' + actAdd + actUp + actDown + actDel + '</span>' +
     '</div>' + childrenHtml + '</li>';
@@ -157,12 +179,12 @@ function renderQuickAdd() {
     '<div class="qa-now" id="qaNow">' + qaCurrentText() + '</div>' +
     '<div class="qa-keys">' +
       '<div class="qa-k-t">快捷键</div>' +
-      '<table>' +
-        '<tr><td><kbd>Enter</kbd></td><td>确认新增</td></tr>' +
-        '<tr><td><kbd>Tab</kbd></td><td>下钻一级</td></tr>' +
-        '<tr><td><kbd>Shift+Tab</kbd></td><td>上升一级</td></tr>' +
-        '<tr><td><kbd>Esc</kbd></td><td>退出</td></tr>' +
-      '</table>' +
+      '<div class="qa-grid">' +
+        '<div class="qa-krow"><kbd>Enter</kbd><span>确认新增</span></div>' +
+        '<div class="qa-krow"><kbd>Tab</kbd><span>下钻一级</span></div>' +
+        '<div class="qa-krow"><kbd>Shift+Tab</kbd><span>上升一级</span></div>' +
+        '<div class="qa-krow"><kbd>Esc</kbd><span>退出</span></div>' +
+      '</div>' +
     '</div>' +
     '</div>';
 }
