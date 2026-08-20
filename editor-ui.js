@@ -273,16 +273,20 @@ function parseTsvRows(text) {
 
 function buildDiagramFromRows(rows) {
   // 按 A(层) → B(分组) → C(模块) → D(条目) 映射
+  // 合并单元格复制时后续行的 A/B 列为空，需要向下填充
   const layerMap = new Map(); // name → { id, name, bandColor, groups: Map }
   let order = 0;
+  let lastLayer = '', lastGroup = '';
   for (const cols of rows) {
-    const layerName = (cols[0] || '').trim();
-    const groupName = (cols[1] || '').trim();
+    const rawLayer = (cols[0] || '').trim();
+    const rawGroup = (cols[1] || '').trim();
     const blockName = (cols[2] || '').trim();
     const itemsRaw  = (cols[3] || '').trim();
-    if (!layerName && !groupName && !blockName) continue; // 跳过空行
-    const ln = layerName || '未命名层';
-    const gn = groupName || '未命名分组';
+    if (rawLayer) lastLayer = rawLayer;   // 有值时更新，空时沿用上一行
+    if (rawGroup) lastGroup = rawGroup;
+    if (!lastLayer && !lastGroup && !blockName) continue; // 跳过纯空行
+    const ln = lastLayer || '未命名层';
+    const gn = lastGroup || '未命名分组';
     const bn = blockName || '未命名模块';
     if (!layerMap.has(ln)) layerMap.set(ln, { id: uid(), name: ln, bandColor: '#2379bd', cols: 3, groups: new Map(), _order: order++ });
     const layer = layerMap.get(ln);
