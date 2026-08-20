@@ -155,7 +155,7 @@ function renderQuickAdd() {
       '<input id="qaInput" class="qa-input" type="text" placeholder="' + ph[_qa.level] + '" autocomplete="off">' +
     '</div>' +
     '<div class="qa-now" id="qaNow">' + qaCurrentText() + '</div>' +
-    '<div class="qa-keys">' +
+    '<div class="qa-keys"><span class="qa-k-t">快捷键：</span>' +
       '<kbd>Enter</kbd> 确认 <i>&middot;</i>' +
       '<kbd>Tab</kbd> 下钻 <i>&middot;</i>' +
       '<kbd>Shift+Tab</kbd> 上升 <i>&middot;</i>' +
