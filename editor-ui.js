@@ -257,7 +257,11 @@ function renderQuickAdd() {
       '<span class="qa-ico">' + (ico[_qa.level] || '&#8226;') + '</span>' +
       '<input id="qaInput" class="qa-input" type="text" placeholder="' + ph[_qa.level] + '" autocomplete="off">' +
     '</div>' +
-    '<div class="qa-hint">层级: <b>' + label[_qa.level] + '</b> &nbsp; Enter 确认 &nbsp; Tab 下钻 &nbsp; Shift+Tab 上升 &nbsp; Esc 退出</div>' +
+    '<div class="qa-hint"><span class="qa-lvl">' + label[_qa.level] + '</span>' +
+    ' <span class="qa-tag">Enter</span> 确认' +
+    ' <span class="qa-tag">Tab</span> 下钻' +
+    ' <span class="qa-tag">Shift+Tab</span> 上升' +
+    ' <span class="qa-tag">Esc</span> 退出</div>' +
     '</div>';
 }
 
@@ -271,7 +275,11 @@ function qaUpdateHint() {
   if (icoEl) icoEl.innerHTML = ico[_qa.level] || '&#8226;';
   const input = document.getElementById('qaInput');
   if (input) input.placeholder = ph[_qa.level];
-  el.innerHTML = '层级: <b>' + label[_qa.level] + '</b> &nbsp; Enter 确认 &nbsp; Tab 下钻 &nbsp; Shift+Tab 上升 &nbsp; Esc 退出';
+  el.innerHTML = '<span class="qa-lvl">' + label[_qa.level] + '</span>' +
+    ' <span class="qa-tag">Enter</span> 确认' +
+    ' <span class="qa-tag">Tab</span> 下钻' +
+    ' <span class="qa-tag">Shift+Tab</span> 上升' +
+    ' <span class="qa-tag">Esc</span> 退出';
 }
 
 function qaLevelDepth() {
