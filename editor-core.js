@@ -46,6 +46,84 @@ function validateDiagram(d) {
   if (!d || typeof d !== 'object' || d.error) return false;
   return Array.isArray(d.layers);
 }
+
+/* ================= 统计自动计算 ================= */
+function calcLayerStat(layer) {
+  const gc = (layer.groups || []).length;
+  let bc = 0, ic = 0;
+  (layer.groups || []).forEach(g => {
+    bc += (g.blocks || []).length;
+    (g.blocks || []).forEach(b => { ic += (b.items || []).length; });
+  });
+  const p = [];
+  if (gc) p.push(gc + ' 分组');
+  if (bc) p.push(bc + ' 模块');
+  if (ic) p.push(ic + ' 条目');
+  return p.join(' · ');
+}
+
+/* ================= 模板完整校验 ================= */
+function validateDiagramFull(d) {
+  const errors = [], warnings = [];
+  if (!d || typeof d !== 'object') { errors.push('数据无效'); return { valid: false, errors, warnings }; }
+  if (!Array.isArray(d.layers) || d.layers.length === 0) errors.push('至少需要 1 个层');
+  const ids = new Set();
+  const checkId = (node, path) => {
+    if (!node || !node.id) return;
+    if (ids.has(node.id)) errors.push('重复 ID: ' + node.id + '（' + path + '）');
+    else ids.add(node.id);
+  };
+  (d.layers || []).forEach((l, li) => {
+    checkId(l, '层' + (li + 1));
+    if (typeof l.name !== 'string') warnings.push('层' + (li + 1) + ' 缺少名称');
+    if (l.cols != null && ![1,2,3].includes(l.cols)) warnings.push('层「' + l.name + '」的列数应为 1/2/3');
+    if (!l.groups || l.groups.length === 0) warnings.push('层「' + l.name + '」没有分组');
+    (l.groups || []).forEach((g, gi) => {
+      checkId(g, '层' + (li + 1) + '/分组' + (gi + 1));
+      (g.blocks || []).forEach((b, bi) => {
+        checkId(b, '层' + (li + 1) + '/分组' + (gi + 1) + '/模块' + (bi + 1));
+        if (b.span != null && ![1,2].includes(b.span)) warnings.push('模块「' + b.title + '」的跨列应为 1 或 2');
+      });
+    });
+  });
+  (d.sidebar || []).forEach((s, i) => checkId(s, '通栏' + (i + 1)));
+  (d.legend || []).forEach((l, i) => checkId(l, '图例' + (i + 1)));
+  return { valid: errors.length === 0, errors, warnings };
+}
+
+/* ================= 撤销/重做 ================= */
+const undoStack = [], redoStack = [];
+const MAX_UNDO = 50;
+let _undoSuppressed = false;
+let _undoFocusPushed = false;
+
+function pushUndo() {
+  if (!diagram || _undoSuppressed) return;
+  undoStack.push(JSON.parse(JSON.stringify(diagram)));
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  redoStack.length = 0;
+}
+
+const DEFAULT_THEME_VARS = { '--blue':'#2379bd', '--blue2':'#2f80c2', '--dash':'#2c78c2', '--panel':'#c8ddef', '--bg':'#ffffff', '--text':'#26384a' };
+
+function undo() {
+  if (!undoStack.length) return;
+  redoStack.push(JSON.parse(JSON.stringify(diagram)));
+  diagram = undoStack.pop();
+  selectedId = null;
+  applyThemeVars((diagram.theme && diagram.theme.vars) || DEFAULT_THEME_VARS);
+  persist(); render(); renderProps();
+}
+
+function redo() {
+  if (!redoStack.length) return;
+  undoStack.push(JSON.parse(JSON.stringify(diagram)));
+  diagram = redoStack.pop();
+  selectedId = null;
+  applyThemeVars((diagram.theme && diagram.theme.vars) || DEFAULT_THEME_VARS);
+  persist(); render(); renderProps();
+}
+
 /* 竖条预置颜色方案 */
 const BAND_COLORS = [
   { name: '亮蓝', color: '#2f80c2' },

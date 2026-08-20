@@ -71,7 +71,10 @@ function renderProps() {
   } else if (t === 'layer') {
     h += field('name', '层名称', node.name);
     h += colorPicker('bandColor', '竖条颜色', node.bandColor);
-    h += field('stat', '层统计文字（可空）', node.stat);
+    const isAuto = node.autoStat !== false;
+    h += '<div class="prop-field"><label><input type="checkbox" data-k="autoStat"' +
+         (isAuto ? ' checked' : '') + '> 自动计算统计</label></div>';
+    if (!isAuto) h += field('stat', '层统计文字', node.stat);
     h += selField('cols', '分组列数', String(node.cols || 3), [['3','3列'],['2','2列'],['1','1列']]);
   } else if (t === 'group') {
     h += field('title', '分组标题', node.title);
@@ -154,6 +157,7 @@ function highlightSel() {
 
 function addChild(parentType) {
   if (!diagram) diagram = newDiagram();
+  pushUndo();
   if (parentType === 'diagram') {
     diagram.layers.push({ id: uid(), name: '新层', bandColor: '#2379bd', cols: 3, groups: [] });
   } else {
@@ -182,6 +186,7 @@ function removeSelected() {
   const idx = list.findIndex(n => n.id === selectedId);
   if (idx >= 0) {
     if (!confirm('删除「' + nodeName(findNode(selectedId)) + '」？')) return;
+    pushUndo();
     list.splice(idx, 1);
     selectedId = null;
     persist(); render(); renderProps();
@@ -195,6 +200,7 @@ function moveSelected(dir) {
   const idx = list.findIndex(n => n.id === selectedId);
   const ni = idx + dir;
   if (idx < 0 || ni < 0 || ni >= list.length) return;
+  pushUndo();
   const tmp = list[idx]; list[idx] = list[ni]; list[ni] = tmp;
   persist(); render();
 }
@@ -281,6 +287,7 @@ function togglePreview() {
 /* ================= 新建空白图 ================= */
 function newBlank() {
   if (!confirm('新建空白图？当前内容将丢失（可先点"导出JSON"备份）。')) return;
+  pushUndo();
   diagram = { schemaVersion: 1, id: uid(), title: '未命名架构图', subtitle: '', layout: 'layered', layers: [] };
   selectedId = null;
   applyThemeVars(COLOR_SCHEMES[0].vars);   // 空白图恢复默认配色
@@ -454,15 +461,18 @@ function loadTemplate() {
   const key = document.getElementById('selTemplate').value;
   const tpls = window.ARCH_TEMPLATES || {};
   if (!key || !tpls[key]) return;
+  pushUndo();
   const migrated = migrateDiagram(JSON.parse(JSON.stringify(tpls[key])));   // 深拷贝 + 版本迁移
   if (!migrated || migrated.error) { alert(migrated ? migrated.error : '模板数据无效'); return; }
   const prevTheme = diagram && diagram.theme;    // 记住已选配色，模板加载后按同方案重绘
   diagram = migrated;
   selectedId = null;
   if (prevTheme) {
+    _undoSuppressed = true;   // applyScheme 内部也有 pushUndo，此处已 push 过，抑制重复
     applyScheme(prevTheme.custom
       ? { id: '__custom', custom: true, colors: prevTheme.custom, vars: prevTheme.vars }
       : COLOR_SCHEMES.find(s => s.id === prevTheme.id) || COLOR_SCHEMES[0]);
+    _undoSuppressed = false;
   } else {
     persist(); render(); renderProps();
   }
@@ -488,6 +498,7 @@ function applyThemeVars(vars) {
 }
 function applyScheme(scheme) {
   if (!diagram) return;
+  pushUndo();
   // 颜色替换：先按"当前方案色阶"反向定位索引（保证连续套用不同方案不卡色），
   // 再回退到预置色板；两者都不命中（自定义颜色）则保留
   const cur = currentScheme();
@@ -532,6 +543,7 @@ function bindEvents() {
   document.getElementById('btnLoadTemplate').addEventListener('click', loadTemplate);
   document.getElementById('btnAddLayer').addEventListener('click', () => {
     if (!diagram) diagram = newDiagram();
+    pushUndo();
     diagram.layers.push({ id: uid(), name: '新层', bandColor: '#2379bd', cols: 3, groups: [] });
     persist(); render();
   });
@@ -545,6 +557,9 @@ function bindEvents() {
         const parsed = JSON.parse(reader.result);
         const migrated = migrateDiagram(parsed);
         if (!migrated || migrated.error) { alert(migrated ? migrated.error : 'JSON 数据无效'); return; }
+        const vr = validateDiagramFull(migrated);
+        if (vr.warnings.length) console.warn('导入警告:', vr.warnings);
+        pushUndo();
         diagram = migrated;
         selectedId = null;
         applyThemeVars(currentScheme().vars);   // 按导入图的配色恢复 CSS 变量，避免与旧方案混色
@@ -593,6 +608,7 @@ function bindEvents() {
     const layout = div.parentElement;
     const startX = e.clientX;
     const startW = diagram.sidebarWidth || parseFloat(getComputedStyle(layout).getPropertyValue('--sidebar-w')) || 460;
+    pushUndo();
     const onMove = ev => {
       const w = Math.max(200, Math.min(900, startW + (ev.clientX - startX)));
       layout.style.setProperty('--sidebar-w', w + 'px');
@@ -609,6 +625,8 @@ function bindEvents() {
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && previewing) togglePreview();
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
   });
   // 下拉菜单：展开/收起
   const closeMenus = () => document.querySelectorAll('.menu-drop.open').forEach(m => m.classList.remove('open'));
@@ -656,6 +674,8 @@ function bindEvents() {
       else if (cmd === 'preview') togglePreview();
       else if (cmd === 'fit') zoomFit();
       else if (cmd === 'zoom-100') applyZoom(100);
+      else if (cmd === 'undo') undo();
+      else if (cmd === 'redo') redo();
     });
   });
   document.addEventListener('click', e => {
@@ -677,6 +697,30 @@ function bindEvents() {
     render();
     highlightSel();
   });
+  // checkbox 变更（如自动统计开关）
+  document.getElementById('props').addEventListener('change', e => {
+    const el = e.target.closest('input[type="checkbox"][data-k]');
+    if (!el || !selectedId) return;
+    const node = findNode(selectedId);
+    if (!node) return;
+    pushUndo();
+    node[el.getAttribute('data-k')] = el.checked;
+    persist(); render(); renderProps();
+  });
+  // 属性面板输入框聚焦时 pushUndo（一次，防抖）
+  document.getElementById('props').addEventListener('focusin', e => {
+    if (e.target.closest('[data-k]') && !_undoFocusPushed) {
+      pushUndo();
+      _undoFocusPushed = true;
+    }
+  });
+  document.getElementById('props').addEventListener('focusout', () => {
+    setTimeout(() => {
+      if (!document.getElementById('props').contains(document.activeElement)) {
+        _undoFocusPushed = false;
+      }
+    }, 0);
+  });
   document.getElementById('props').addEventListener('click', e => {
     if (!selectedId) return;
     const node = findNode(selectedId);
@@ -684,6 +728,7 @@ function bindEvents() {
     // 竖条颜色色块选择
     const sw = e.target.closest('[data-color]');
     if (sw) {
+      pushUndo();
       const field = sw.getAttribute('data-color-field');
       node[field] = sw.getAttribute('data-color');
       persist(); render(); highlightSel(); renderProps();
@@ -691,6 +736,7 @@ function bindEvents() {
     }
     const delBtn = e.target.closest('[data-chip-del]');
     if (delBtn) {
+      pushUndo();
       node.items.splice(parseInt(delBtn.getAttribute('data-chip-del'), 10), 1);
       persist(); render(); renderProps(); return;
     }
@@ -698,7 +744,7 @@ function bindEvents() {
     if (addBtn) {
       const input = document.getElementById('chipInput');
       const v = input.value.trim();
-      if (v) { (node.items = node.items || []).push(v); input.value = ''; }
+      if (v) { pushUndo(); (node.items = node.items || []).push(v); input.value = ''; }
       persist(); render(); renderProps();
     }
   });
@@ -707,7 +753,7 @@ function bindEvents() {
       const node = findNode(selectedId);
       if (!node) return;
       const v = e.target.value.trim();
-      if (v) { (node.items = node.items || []).push(v); e.target.value = ''; }
+      if (v) { pushUndo(); (node.items = node.items || []).push(v); e.target.value = ''; }
       persist(); render(); renderProps();
     }
   });

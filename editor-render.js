@@ -72,7 +72,8 @@ function renderLayered(d) {
              '<div class="sd-title">' + esc(g.title) + '</div>' +
              '<div class="cards">' + blocks + '</div></div>';
     }).join('');
-    const stat = layer.stat ? '<span class="stat">' + esc(layer.stat) + '</span>' : '';
+    const statText = layer.autoStat !== false ? calcLayerStat(layer) : (layer.stat || '');
+    const stat = statText ? '<span class="stat">' + esc(statText) + '</span>' : '';
     return '<section class="layer" data-id="' + layer.id + '">' +
            '<div class="band" data-id="' + layer.id + '" style="background:' + (layer.bandColor || '#2379bd') + '">' + esc(layer.name) + '</div>' +
            '<div class="body">' +
