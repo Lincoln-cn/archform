@@ -18,8 +18,8 @@
 |---|---|
 | Overall Architecture · layered · default blue | Data Architecture · layered · green palette |
 | ![Overall Architecture template](docs/images/preview.png) | ![Data Architecture template with green palette](docs/images/data-green.png) |
-| Central-core layout · amber palette | Clean PNG export (standalone, current palette) |
-| ![Central core layout with amber palette](docs/images/central-amber.png) | ![Standalone PNG export](docs/images/export-data.png) |
+| Data Architecture · flow layout | Clean PNG export (standalone, current palette) |
+| ![Data Architecture flow layout](docs/images/flow-preview.png) | ![Standalone PNG export](docs/images/export-data.png) |
 
 ## Why not another canvas tool?
 
@@ -29,7 +29,7 @@ Layered architecture diagrams are roughly 90% nested structure — **Layer → G
 
 - **Structured input** — edit a four-level tree (Diagram → Layer → Group → Block → Item); a quick-add bar at the bottom of the tree types nodes with Enter / Tab / Shift+Tab, and a right-click context menu covers new / copy / paste / move up / move down / delete
 - **Undo / redo** — 50-step history across every edit (structure, properties, color schemes, template loads), Ctrl+Z / Ctrl+Shift+Z
-- **Automatic layout** — three paradigms over the same data, switchable without losing anything: *layered*, *central core*, and *cards grid*
+- **Automatic layout** — two paradigms over the same data, switchable without losing anything: *layered* and *flow* (horizontal); legacy cards/central data auto-converts to layered on open
 - **Enforced style spec** — dashed panels, 2px corners, fixed type scale; six preset color schemes plus a custom six-shade palette, saved with the diagram (pillar bars included)
 - **Built for architecture reviews** — a bottom legend bar and right-side pillar bars for cross-cutting concerns such as security, operations, and governance
 - **Bulk input from text** — File → **From Text** turns indented text into a whole diagram with a live structure preview; no need to hand-drag boxes
@@ -37,7 +37,7 @@ Layered architecture diagrams are roughly 90% nested structure — **Layer → G
 - **Auto statistics** — each layer shows its group / block / item counts automatically (toggleable per layer)
 - **Fully offline** — export vector **SVG**, high-resolution **PNG** (2×), or a standalone **HTML** file with embedded vector data; zero network requests, zero runtime dependencies, double-click `file://` to run
 - **Versioned data** — every diagram carries a `schemaVersion` and is auto-migrated on load (`migrateDiagram`); JSON import/export plus `localStorage` autosave
-- **Nine built-in templates** — Generic Layered, Overall Architecture, Application Architecture, Data Architecture (data-warehouse layering), Technology Architecture, Middle Platform, Cloud Platform, Microservices, and Security (MLPS 2.0)
+- **Nine built-in templates** — Generic Layered, Overall Architecture, Application Architecture, Data Architecture (data-warehouse layering), Technology Architecture, Middle Platform, Cloud Platform, Microservices, Security (MLPS 2.0)
 - **Layer connections** — optional inter-layer connection lines (layered layout only); arrows with labels and line styles; toggle via View menu
 - **Module badges** — `[call:xx]` / `[depends:xx]` tags in item lists rendered as inline badges across all layouts
 - **Export draw.io** — escape hatch: export `.drawio` XML for further editing in draw.io (free-form curves, complex layouts)
@@ -97,7 +97,7 @@ Templates are plain data in `templates.js` — copy the JSON structure to add yo
 ├─ index.html           # Editor shell (inline style spec + page; double-click to run)
 ├─ editor-core.js       # State, node lookup, data versioning (migrateDiagram)
 ├─ editor-tree.js       # Structure tree: render, node ops, quick-add, copy/paste, context menu
-├─ editor-render.js     # Render engine: layered / central / cards
+├─ editor-render.js     # Render engine: layered / flow
 ├─ editor-ui.js         # Property panel, color schemes, export (SVG/PNG/HTML), zoom, events
 ├─ templates.js         # Built-in template library (plain data)
 ├─ docs/                # Public documentation (roadmap, usage guide)

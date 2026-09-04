@@ -10,7 +10,7 @@ function renderProps() {
     h += field('title', '图标题', node.title);
     h += field('subtitle', '副标题（可空）', node.subtitle);
     h += selField('layout', '布局范式', node.layout,
-      [['layered','多层横向'],['cards','卡片网格'],['central','中央核心']]);
+      [['layered','多层横向'],['flow','横向流向']]);
   } else if (t === 'layer') {
     h += field('name', '层名称', node.name);
     h += colorPicker('bandColor', '竖条颜色', node.bandColor);
@@ -294,7 +294,7 @@ function showConnModal() {
     '<div class="tg-dialog ce-dialog">' +
       '<div class="ce-headbar"><div class="ce-title">编辑层间连线</div>' +
       '<label class="ce-vis"><input type="checkbox" data-cmd="conn-vis"' + (diagram.showConnections ? ' checked' : '') + '> 在画布上显示</label></div>' +
-      '<div class="ce-hint">每一行是一条从「起点层」指向「终点层」的箭头；线型可选虚线/点线表示弱关系。连线仅在 <b>多层横向(layered)</b> 布局渲染。</div>' +
+      '<div class="ce-hint">每一行是一条从「起点层」指向「终点层」的箭头；线型可选虚线/点线表示弱关系。连线在 <b>多层横向</b> 任意层对渲染；在 <b>横向流向</b> 仅相邻两列间渲染。</div>' +
       '<div class="ce-list" id="ceRows"></div>' +
       '<button type="button" class="ce-add" data-cmd="conn-add">＋ 添加一行</button>' +
       '<div class="tg-actions ce-actions">' +
@@ -372,7 +372,7 @@ function saveConnModal() {
   diagram.connections = rows.map(function(c) { return { id: c.id || uid(), from: c.from, to: c.to, style: c.style || 'solid', label: c.label || '' }; });
   closeConnModal();
   persist(); render(); renderProps();
-  if (diagram.layout !== 'layered') alert('已保存连线数据。连线仅在「多层横向(layered)」布局中渲染。');
+  if (diagram.layout !== 'layered') alert('已保存连线数据。连线在「多层横向」任意层对渲染；在「横向流向」仅相邻两列间渲染。');
 }
 
 /* ================= SVG 导出（离线，替代 html2canvas，无任何网络依赖） ================= */

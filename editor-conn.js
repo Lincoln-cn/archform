@@ -1,4 +1,4 @@
-/* ===== 层间连线(仅 layered):几何与渲染 ===== */
+/* ===== 层间连线:几何与渲染(layered + flow) ===== */
 function canvasRef() { return document.getElementById('archCanvas'); }
 
 /* 布局坐标:相对 .canvas 边框盒,除以 transform 缩放(与导出共用同一几何基准) */
@@ -65,6 +65,43 @@ function connItems() {
   return items;
 }
 
+/* flow 相邻列间隙箭头:仅 layers[i]→layers[i+1] 水平段;带说明时标签置于箭头正上方 */
+function connFlowItems() {
+  if (!diagram) return [];
+  if (diagram.layout !== 'flow') return [];
+  if (!diagram.showConnections) return [];
+  var conns = diagram.connections || [];
+  if (!conns.length) return [];
+  var cv = canvasRef();
+  if (!cv) return [];
+  var cols = cv.querySelectorAll('.flow-col');
+  if (!cols.length) return [];
+  /* 依序对应 layers */
+  var layerIds = (diagram.layers || []).map(function(l) { return l.id; });
+  var colMap = {};
+  cols.forEach(function(col) { colMap[col.getAttribute('data-id')] = col; });
+  var items = [];
+  conns.forEach(function(c) {
+    var fi = layerIds.indexOf(c.from), ti = layerIds.indexOf(c.to);
+    if (fi < 0 || ti < 0 || ti !== fi + 1) return;          /* 仅相邻列 */
+    var fromCol = colMap[c.from], toCol = colMap[c.to];
+    if (!fromCol || !toCol) return;
+    var fr = connP(fromCol), tr = connP(toCol);
+    var x1 = fr.x + fr.w, x2 = tr.x;
+    var top = Math.min(fr.y, tr.y);
+    var y = top + (Math.max(fr.y + fr.h, tr.y + tr.h) - top) / 2;
+    var it = { d: 'M ' + (x1 + 2) + ' ' + y + ' H ' + (x2 - 2), style: c.style || 'solid' };
+    if (c.label) {
+      /* 间隙已按标签宽度加宽(renderFlow);标签居中放箭头正上方 */
+      it.label = c.label;
+      it.lx = (x1 + x2) / 2;
+      it.ly = y - 15;
+    }
+    items.push(it);
+  });
+  return items;
+}
+
 /* XML 转义(复用 esc 但需独立以防环境差异) */
 function connEsc(s) {
   return String(s ?? '').replace(/[&<>"]/g, function(c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; });
@@ -72,7 +109,7 @@ function connEsc(s) {
 
 /* 返回可直接拼入导出 SVG 的连线 XML 片段(仅当 showConnections 且有效连线) */
 function connSvgXml() {
-  var items = connItems();
+  var items = (diagram && diagram.layout === 'flow') ? connFlowItems() : connItems();
   if (!items.length) return '';
   var parts = [];
   /* 独立 marker id 防与 DOM overlay 混淆 */
@@ -132,8 +169,12 @@ function buildDrawioXml() {
   var idMap = {}; /* dataId → drawio cell id */
   var nextId = 10;
 
-  if (layout === 'layered') {
-    /* 每层 → swimlane */
+  if (layout === 'layered' || layout === 'flow') {
+    /* 每层 → swimlane; flow 用 horizontal=1 + startSize=36, layered 保持原参数 */
+    var isFlow = layout === 'flow';
+    var swimStyle = isFlow
+      ? 'swimlane;horizontal=1;startSize=36;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#64748b;'
+      : 'swimlane;horizontal=0;startSize=52;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#64748b;';
     (diagram.layers || []).forEach(function(layer) {
       var sec = cv.querySelector('section.layer[data-id="' + layer.id + '"]');
       if (!sec) return;
@@ -142,7 +183,7 @@ function buildDrawioXml() {
       idMap[layer.id] = 'l_' + layer.id;
       var n = (layer.name || layer.title || '').replace(/"/g, '&quot;');
       cells.push('<mxCell id="l_' + layer.id + '" value="' + drawioEsc(n) + '"' +
-        ' style="swimlane;horizontal=0;startSize=52;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#64748b;"' +
+        ' style="' + swimStyle + '"' +
         ' vertex="1" parent="1">' +
         '<mxGeometry x="' + geo.x.toFixed(1) + '" y="' + geo.y.toFixed(1) + '"' +
         ' width="' + geo.w.toFixed(1) + '" height="' + geo.h.toFixed(1) + '" as="geometry"/></mxCell>');
@@ -176,78 +217,22 @@ function buildDrawioXml() {
       });
     });
 
-    /* 连线:从 diagram.connections 直接读(与 showConnections 无关) */
-    (diagram.connections || []).forEach(function(c) {
-      var srcId = idMap[c.from], tgtId = idMap[c.to];
-      if (!srcId || !tgtId) return;
-      var style = 'edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#64748b;exitX=0;exitY=0.5;entryX=0;entryY=0.5;';
-      if (c.style === 'dashed') style += 'dashed=1;';
-      else if (c.style === 'dotted') style += 'dashed=1;dashPattern=2 4;';
-      var val = c.label ? ' value="' + drawioEsc(c.label) + '"' : '';
-      if (c.label) style += 'labelBackgroundColor=#ffffff;';
-      cells.push('<mxCell id="e_' + c.id + '"' + val +
-        ' style="' + style + '"' +
-        ' edge="1" parent="1" source="' + srcId + '" target="' + tgtId + '"/>');
-    });
-
-  } else if (layout === 'cards') {
-    /* cards:尽力而为——每层→矩形,每组→子矩形,模块→子矩形+html 标签 */
-    (diagram.layers || []).forEach(function(layer) {
-      var geo = elMap[layer.id];
-      if (!geo) return;
-      idMap[layer.id] = 'l_' + layer.id;
-      cells.push('<mxCell id="l_' + layer.id + '" value="' + drawioEsc(layer.name || layer.title || '') + '"' +
-        ' style="swimlane;horizontal=0;startSize=32;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#64748b;"' +
-        ' vertex="1" parent="1">' +
-        '<mxGeometry x="' + geo.x.toFixed(1) + '" y="' + geo.y.toFixed(1) + '"' +
-        ' width="' + geo.w.toFixed(1) + '" height="' + geo.h.toFixed(1) + '" as="geometry"/></mxCell>');
-      (layer.groups || []).forEach(function(g) {
-        var gGeo = elMap[g.id];
-        if (!gGeo) return;
-        var gid = 'g_' + g.id;
-        cells.push('<mxCell id="' + gid + '" value="' + drawioEsc(g.title || '') + '"' +
-          ' style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eef5fc;strokeColor=#b9d8f0;"' +
-          ' vertex="1" parent="l_' + layer.id + '">' +
-          '<mxGeometry x="' + (gGeo.x - geo.x).toFixed(1) + '" y="' + (gGeo.y - geo.y).toFixed(1) + '"' +
-          ' width="' + gGeo.w.toFixed(1) + '" height="' + gGeo.h.toFixed(1) + '" as="geometry"/></mxCell>');
-        (g.blocks || []).forEach(function(b) {
-          var bGeo = elMap[b.id];
-          if (!bGeo) return;
-          var lines = ['&lt;b&gt;' + drawioEsc(b.title || '') + '&lt;/b&gt;'];
-          (b.items || []).forEach(function(it) { lines.push(drawioEsc(itemText(it))); });
-          cells.push('<mxCell id="b_' + b.id + '" value="' + drawioEsc(lines.join('&lt;br&gt;')) + '"' +
-            ' style="rounded=0;whiteSpace=wrap;html=1;fillColor=#2379bd;fontColor=#fff;strokeColor=#1a5c94;"' +
-            ' vertex="1" parent="' + gid + '">' +
-            '<mxGeometry x="' + (bGeo.x - gGeo.x).toFixed(1) + '" y="' + (bGeo.y - gGeo.y).toFixed(1) + '"' +
-            ' width="' + bGeo.w.toFixed(1) + '" height="' + bGeo.h.toFixed(1) + '" as="geometry"/></mxCell>');
-        });
+    /* 连线:仅 layered 输出(从 diagram.connections 直接读,与 showConnections 无关) */
+    if (layout === 'layered') {
+      (diagram.connections || []).forEach(function(c) {
+        var srcId = idMap[c.from], tgtId = idMap[c.to];
+        if (!srcId || !tgtId) return;
+        var style = 'edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#64748b;exitX=0;exitY=0.5;entryX=0;entryY=0.5;';
+        if (c.style === 'dashed') style += 'dashed=1;';
+        else if (c.style === 'dotted') style += 'dashed=1;dashPattern=2 4;';
+        var val = c.label ? ' value="' + drawioEsc(c.label) + '"' : '';
+        if (c.label) style += 'labelBackgroundColor=#ffffff;';
+        cells.push('<mxCell id="e_' + c.id + '"' + val +
+          ' style="' + style + '"' +
+          ' edge="1" parent="1" source="' + srcId + '" target="' + tgtId + '"/>');
       });
-    });
+    }
 
-  } else if (layout === 'central') {
-    /* central:每层→矩形,块→子矩形 */
-    (diagram.layers || []).forEach(function(layer) {
-      var geo = elMap[layer.id];
-      if (!geo) return;
-      idMap[layer.id] = 'l_' + layer.id;
-      cells.push('<mxCell id="l_' + layer.id + '" value="' + drawioEsc(layer.name || layer.title || '') + '"' +
-        ' style="swimlane;horizontal=0;startSize=32;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#64748b;"' +
-        ' vertex="1" parent="1">' +
-        '<mxGeometry x="' + geo.x.toFixed(1) + '" y="' + geo.y.toFixed(1) + '"' +
-        ' width="' + geo.w.toFixed(1) + '" height="' + geo.h.toFixed(1) + '" as="geometry"/></mxCell>');
-      (layer.groups || []).forEach(function(g) {
-        (g.blocks || []).forEach(function(b) {
-          var bGeo = elMap[b.id];
-          if (!bGeo) return;
-          var sub = b.sub ? '&lt;br&gt;' + drawioEsc(b.sub) : '';
-          cells.push('<mxCell id="b_' + b.id + '" value="' + drawioEsc(drawioEsc(b.title || '') + sub) + '"' +
-            ' style="rounded=0;whiteSpace=wrap;html=1;fillColor=#2379bd;fontColor=#fff;strokeColor=#1a5c94;"' +
-            ' vertex="1" parent="l_' + layer.id + '">' +
-            '<mxGeometry x="' + (bGeo.x - geo.x).toFixed(1) + '" y="' + (bGeo.y - geo.y).toFixed(1) + '"' +
-            ' width="' + bGeo.w.toFixed(1) + '" height="' + bGeo.h.toFixed(1) + '" as="geometry"/></mxCell>');
-        });
-      });
-    });
   }
 
   /* sidebar:右侧竖条 → 平铺 cell(parent=1) */
@@ -299,13 +284,11 @@ function exportDrawio() {
 function drawConnections() {
   var cv = canvasRef();
   if (!cv) return;
-  /* 守卫:条件不满足时清除已有 overlay */
-  if (!diagram || diagram.layout !== 'layered' || !diagram.showConnections || !(diagram.connections || []).length) {
-    var old = cv.querySelector('.conn-overlay');
-    if (old) old.remove();
-    return;
+  /* 双分支:layered 走 rail 正交,flow 走相邻列水平箭头 */
+  var items = [];
+  if (diagram) {
+    items = diagram.layout === 'layered' ? connItems() : diagram.layout === 'flow' ? connFlowItems() : [];
   }
-  var items = connItems();
   var old = cv.querySelector('.conn-overlay');
   if (old) old.remove();
   if (!items.length) return;
@@ -337,7 +320,7 @@ function drawConnections() {
     if (it.style === 'dashed') path.setAttribute('stroke-dasharray', '6 4');
     else if (it.style === 'dotted') path.setAttribute('stroke-dasharray', '2 4');
     svg.appendChild(path);
-    /* 标签:白底矩形 + 居中文字 */
+    /* 标签(白底矩形 + 居中文字;layered 在 rail 旁,flow 在箭头正上方) */
     if (it.label) {
       var tw = it.label.length * 11 + 10, th = 18;
       var rect = document.createElementNS(ns, 'rect');

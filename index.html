@@ -146,89 +146,24 @@
     justify-content:center;
   }
 
-  /* ===== cards 范式（DL1~DL3 资产目录） ===== */
-  .arch .domain-grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
-    gap:20px;
-  }
-  .arch .dl1-card{
-    background:#fff;
-    border:2px dashed var(--dash);
-    border-radius:2px;
-    overflow:hidden;
-    display:flex;
-    flex-direction:column;
-  }
-  .arch .dl1-header{
-    background:var(--panel);
-    padding:14px 16px;
-    border-bottom:1px solid #b9d8f0;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-  }
-  .arch .dl1-title{font-size:17px;font-weight:700;color:#1a5c94}
-  .arch .owner-tag{
-    font-size:12px;background:#fff;color:#2379bd;
-    border:1px solid #b9d8f0;padding:2px 8px;border-radius:2px;white-space:nowrap;
-  }
-  .arch .dl1-body{padding:16px;display:flex;flex-direction:column;gap:12px;flex:1}
-  .arch .dl2-group{
-    background:#eef5fc;border:1px solid #b9d8f0;border-radius:2px;padding:12px;
-    flex:1;display:flex;flex-direction:column;
-  }
-  .arch .dl2-title{
-    font-size:15px;font-weight:600;color:#2f80c2;
-    margin-bottom:10px;padding-bottom:6px;border-bottom:1px dashed var(--dash);
-  }
-  .arch .dl3-list{display:flex;flex-direction:column;gap:8px;flex:1}
-  .arch .dl3-item{
-    background:#fff;border:1px solid #cfe3f5;border-radius:2px;padding:8px 10px;
-    display:flex;justify-content:space-between;align-items:center;flex:1;
-  }
-  .arch .dl3-name{font-size:14px;font-weight:600;color:#26384a}
-  .arch .dl3-entity{font-size:12px;color:#5a7a9a;margin-top:2px}
-  .arch .dl3-tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-  .arch .tag{
-    font-size:11px;padding:2px 8px;border-radius:2px;white-space:nowrap;
-    background:#eef5fc;color:#1a5c94;border:1px solid #b9d8f0;
-  }
-  .arch .tag.reuse{background:#f1f5f9;color:#64748b;border-color:#cbd5e1}
-  .arch .tag.cat-master{background:#2379bd;color:#fff;border:none}
-  .arch .tag.cat-trans{background:#059669;color:#fff;border:none}
-  .arch .tag.cat-base{background:#d97706;color:#fff;border:none}
-  .arch .tag.cat-obs{background:#7c3aed;color:#fff;border:none}
-  .arch .tag.cat-rep{background:#475569;color:#fff;border:none}
 
-  /* ===== central/组合视图（核心居中 + 上/左/右/下四向） ===== */
-  .arch .central-wrap{
-    display:grid;grid-template-columns:1fr 1.5fr 1fr;grid-template-rows:auto 1fr auto;
-    gap:10px;align-items:stretch;
-  }
-  .arch .central-top{grid-column:1/-1}
-  .arch .central-left{grid-column:1;grid-row:2}
-  .arch .central-core{grid-column:2;grid-row:2}
-  .arch .central-right{grid-column:3;grid-row:2}
-  .arch .central-bottom{grid-column:1/-1;display:flex;gap:10px}
-  .arch .central-side,.arch .central-core{
-    border:2px dashed var(--dash);background:var(--panel);border-radius:2px;padding:12px;
-    display:flex;flex-direction:column;gap:10px;
-  }
-  .arch .central-core{background:#d3e6f6}
-  .arch .central-title{
-    font-size:16px;font-weight:700;color:#1a5c94;text-align:center;
-    padding-bottom:8px;border-bottom:1px dashed var(--dash);
-  }
-  .arch .central-block{
-    background:var(--blue);color:#fff;border-radius:2px;padding:10px 12px;
-    display:flex;flex-direction:column;gap:6px;flex:1;min-height:48px;
-  }
-  .arch .central-block .cb-t{font-size:15px;font-weight:700;text-align:center}
-  .arch .central-block .cb-s{font-size:12px;color:rgba(255,255,255,.85);text-align:center}
-  .arch .central-bottom .central-block{background:#0e2a47}
-  .arch .central-top .central-block{background:#2f80c2}
-  .arch .central-side .central-block{background:#2379bd}
+  /* ===== flow 范式（横向流向：层→列，顶部横排色带，分组纵叠） ===== */
+  .arch .flow-lanes{display:flex;align-items:stretch}   /* 列间距由 renderFlow 按边界 margin 控制(带标签的连接间隙加宽) */
+  .arch .flow-col{flex:1 1 0;min-width:0;display:grid;grid-template-columns:1fr;grid-template-rows:auto 1fr;
+    border:2px dashed var(--dash);background:var(--panel);overflow:hidden;margin-bottom:0}
+  .arch .layer .flow-band{writing-mode:horizontal-tb;display:flex;align-items:center;gap:10px;
+    padding:9px 14px;font-size:15px;font-weight:700;letter-spacing:1px;color:#fff}
+  .arch .layer .flow-band .stat{font-size:12px;font-weight:400;color:rgba(255,255,255,.85);margin-left:auto}
+  .arch .flow-col .body{padding:10px 12px 12px;display:flex;flex-direction:column;align-items:stretch}
+  .arch .flow-col .subdomain{padding:0;border:none;background:transparent}
+  .arch .flow-col .sd-title{text-align:left;padding-bottom:6px;border-bottom:1px solid #b9d8f0;margin-bottom:8px}
+  .arch .flow-col .groups{display:flex;flex-direction:column;gap:10px;height:100%}
+  .arch .flow-col .cards{flex-direction:column;gap:8px}
+  /* 列内不继承 layered 的等高拉伸:卡片/条目按内容自适应,条目可换行不截断 */
+  .arch .flow-col .card{flex:0 1 auto;width:100%}
+  .arch .flow-col .card .t{text-align:left;margin-bottom:6px}
+  .arch .flow-col .card .items{flex:0 0 auto;align-content:flex-start;justify-content:flex-start;gap:6px}
+  .arch .flow-col .card .item{flex:0 1 auto;min-width:64px;white-space:normal;overflow:visible}
 
   /* ===== 右侧垂直通栏（体系说明）：体系竖条横向并排，新增往右增加 ===== */
   .arch .side-layout{display:grid;grid-template-columns:1fr 8px var(--sidebar-w,460px);gap:0;align-items:stretch}
@@ -278,7 +213,6 @@
   /* ===== 模块角标(ref-tag) ===== */
   .arch .ref-tag{display:inline-block;font-size:10px;line-height:1.5;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:2px;padding:0 4px;margin-left:4px;font-style:normal;vertical-align:middle;white-space:nowrap}
   .arch .item.has-ref{white-space:normal;overflow:visible}
-  .arch .tag.ref-badge{background:#fef3c7;border-color:#fcd34d;color:#92400e;font-weight:600}
 
   /* ===== 层间连线(conn) ===== */
   .arch .canvas{position:relative}

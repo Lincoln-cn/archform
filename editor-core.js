@@ -35,7 +35,7 @@ function migrateDiagram(d) {
   if (v <= 1) {
     d.title = typeof d.title === 'string' ? d.title : '未命名架构图';
     d.subtitle = typeof d.subtitle === 'string' ? d.subtitle : '';
-    if (d.layout !== 'cards' && d.layout !== 'central') d.layout = 'layered';
+    // layout 迁移统一在 normalizeV2 之后处理
     if (!Array.isArray(d.layers)) d.layers = [];
     (d.layers || []).forEach(l => {
       if (!l || typeof l !== 'object') return;
@@ -58,6 +58,8 @@ function migrateDiagram(d) {
   }
   // v2 幂等兜底(任何版本都执行)
   normalizeV2(d);
+  // v0.4 布局范式收敛:cards/central 下线,统一迁移到 layered;flow 保持
+  if (d.layout !== 'layered' && d.layout !== 'flow') d.layout = 'layered';
   d.schemaVersion = 2;
   return d;
 }
