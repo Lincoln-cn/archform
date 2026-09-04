@@ -26,10 +26,13 @@ function renderTree() {
   const tree = document.getElementById('tree');
   if (!diagram) { tree.innerHTML = ''; return; }
   tree.innerHTML = treeNode(diagram);
-  // 追加快速录入栏
+  // 快速录入栏作为面板独立底栏(置于树之后;每次渲染先移除旧实例,避免重复)
+  const panel = tree.parentElement;
+  const oldQa = panel.querySelector('.quick-add');
+  if (oldQa) oldQa.remove();
   const qa = document.createElement('div');
   qa.innerHTML = renderQuickAdd();
-  tree.appendChild(qa.firstElementChild);
+  panel.appendChild(qa.firstElementChild);
   // 绑定快速录入事件
   const input = document.getElementById('qaInput');
   if (input) {
@@ -135,7 +138,12 @@ function removeSelected() {
   if (idx >= 0) {
     if (!confirm('删除「' + nodeName(findNode(selectedId)) + '」？')) return;
     pushUndo();
+    const node = findNode(selectedId);
     list.splice(idx, 1);
+    // 删层时联动清理相关连线
+    if (node && nodeType(node) === 'layer') {
+      diagram.connections = (diagram.connections || []).filter(c => c.from !== selectedId && c.to !== selectedId);
+    }
     selectedId = null;
     persist(); render(); renderProps();
   }

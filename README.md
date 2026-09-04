@@ -37,7 +37,10 @@ Layered architecture diagrams are roughly 90% nested structure — **Layer → G
 - **Auto statistics** — each layer shows its group / block / item counts automatically (toggleable per layer)
 - **Fully offline** — export vector **SVG**, high-resolution **PNG** (2×), or a standalone **HTML** file with embedded vector data; zero network requests, zero runtime dependencies, double-click `file://` to run
 - **Versioned data** — every diagram carries a `schemaVersion` and is auto-migrated on load (`migrateDiagram`); JSON import/export plus `localStorage` autosave
-- **Five built-in templates** — Generic Layered, Overall Architecture, Application Architecture, Data Architecture (data-warehouse layering), and Technology Architecture
+- **Nine built-in templates** — Generic Layered, Overall Architecture, Application Architecture, Data Architecture (data-warehouse layering), Technology Architecture, Middle Platform, Cloud Platform, Microservices, and Security (MLPS 2.0)
+- **Layer connections** — optional inter-layer connection lines (layered layout only); arrows with labels and line styles; toggle via View menu
+- **Module badges** — `[call:xx]` / `[depends:xx]` tags in item lists rendered as inline badges across all layouts
+- **Export draw.io** — escape hatch: export `.drawio` XML for further editing in draw.io (free-form curves, complex layouts)
 
 ## Quick Start
 
@@ -70,6 +73,10 @@ No GitHub? Drop the folder on any static host or intranet share — `index.html`
 | Application Architecture | layered | Application systems and their functional modules |
 | Data Architecture | layered | Source → ODS → DWD → DWS → ADS → Service layering by subject domain |
 | Technology Architecture | layered | Access → Services → Middleware → Storage → Infrastructure |
+| Middle Platform | layered | Shared service centers (user / order / product / payment) + data platform + tech base |
+| Cloud Platform | layered | Access → Cloud management → SaaS → PaaS → IaaS → Infrastructure |
+| Microservices | layered | API gateway → Business services → Common components → Data layer (connection demos) |
+| Security (MLPS 2.0) | layered | Physical → Network → Boundary → Computing → Security management center |
 
 Templates are plain data in `templates.js` — copy the JSON structure to add your own.
 
@@ -81,6 +88,7 @@ Templates are plain data in `templates.js` — copy the JSON structure to add yo
 | **PNG** | 2× high-resolution raster of the whole diagram with the current palette (toolbar: Export PNG) |
 | **HTML** | Standalone file with full styles and embedded vector data; insert it into documents and download the PNG from inside |
 | **JSON** | The diagram data itself — versioned, diffable, reusable across projects |
+| **draw.io** | Escape hatch: export `.drawio` XML, open in draw.io to add free-form curves and complex layouts |
 
 ## Project Structure
 

@@ -10,7 +10,20 @@ const SIDEBAR_ROOT = { id: '__sidebar', title: '右侧通栏（体系说明）' 
 const LEGEND_ROOT = { id: '__legend', title: '底部图例' };
 
 /* ================= 数据版本化 ================= */
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
+/* v2 幂等规范化:connections/showConnections 字段兜底 */
+function normalizeV2(d) {
+  const VALID_STYLES = { solid: 1, dashed: 1, dotted: 1 };
+  if (!Array.isArray(d.connections)) d.connections = [];
+  d.connections.forEach(c => {
+    if (!c.id) c.id = uid();
+    c.from = String(c.from || '');
+    c.to = String(c.to || '');
+    if (!VALID_STYLES[c.style]) c.style = 'solid';
+    if (typeof c.label !== 'string') c.label = '';
+  });
+  if (d.showConnections == null) d.showConnections = false;
+}
 /* 迁移/校验旧数据:返回迁移后的图;若返回 {error} 表示无法加载(版本过高) */
 function migrateDiagram(d) {
   if (!d || typeof d !== 'object') return null;
@@ -18,8 +31,8 @@ function migrateDiagram(d) {
   if (typeof v !== 'number' || v > SCHEMA_VERSION) {
     return { error: '该文件由更新版本创建（schemaVersion ' + v + '），请升级工具后再打开。' };
   }
-  if (v === 1) {
-    d.schemaVersion = 1;
+  // v1 规范化:缺省视为 v1 的旧数据/模板仍走它
+  if (v <= 1) {
     d.title = typeof d.title === 'string' ? d.title : '未命名架构图';
     d.subtitle = typeof d.subtitle === 'string' ? d.subtitle : '';
     if (d.layout !== 'cards' && d.layout !== 'central') d.layout = 'layered';
@@ -43,6 +56,9 @@ function migrateDiagram(d) {
     if (d.sidebar != null && !Array.isArray(d.sidebar)) d.sidebar = [];
     if (d.legend != null && !Array.isArray(d.legend)) d.legend = [];
   }
+  // v2 幂等兜底(任何版本都执行)
+  normalizeV2(d);
+  d.schemaVersion = 2;
   return d;
 }
 function validateDiagram(d) {
@@ -91,6 +107,16 @@ function validateDiagramFull(d) {
   });
   (d.sidebar || []).forEach((s, i) => checkId(s, '通栏' + (i + 1)));
   (d.legend || []).forEach((l, i) => checkId(l, '图例' + (i + 1)));
+  /* 连线校验(只报告、不修改数据) */
+  const connIds = new Set();
+  (d.connections || []).forEach((c, i) => {
+    if (c.id && connIds.has(c.id)) errors.push('重复连接 ID: ' + c.id);
+    else if (c.id) connIds.add(c.id);
+    if (!ids.has(c.from)) warnings.push('连接 ' + (c.id || i) + ' 的 from 端点「' + c.from + '」不存在');
+    if (!ids.has(c.to)) warnings.push('连接 ' + (c.id || i) + ' 的 to 端点「' + c.to + '」不存在');
+    if (c.from && c.from === c.to) warnings.push('连接 ' + (c.id || i) + ' 自环(from===to)');
+    if (c.style && !{ solid:1, dashed:1, dotted:1 }[c.style]) warnings.push('连接 ' + (c.id || i) + ' 的线型「' + c.style + '」非法，渲染将按 solid 处理');
+  });
   return { valid: errors.length === 0, errors, warnings };
 }
 
@@ -140,10 +166,12 @@ const BAND_COLORS = [
 /* ================= 默认数据 ================= */
 function newDiagram() {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     title: "未命名架构图",
     subtitle: "",
     layout: "layered",
+    connections: [],
+    showConnections: false,
     layers: [
       { id: uid(), name: "示例层", bandColor: "#2379bd", groups: [
         { id: uid(), title: "示例分组", blocks: [
@@ -207,6 +235,27 @@ function nodeName(node) {
 /* ================= 渲染引擎 ================= */
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+/* 角标解析:items 文本中 [kw:target](kw 白名单)渲染为角标 */
+const REF_KWS = ['调用','依赖','数据','接口','推送','订阅'];
+const REF_RE = new RegExp('\\s*\\[(' + REF_KWS.join('|') + ')\\s*[:：]\\s*([^\\[\\]]+?)\\]\\s*', 'g');
+function splitRefs(text) {
+  var s = String(text || '');
+  var refs = [], plain;
+  plain = s.replace(REF_RE, function(_, kw, target) {
+    refs.push({ kw: kw, target: target.trim() });
+    return '';
+  }).trim();
+  return { plain: plain, refs: refs };
+}
+function itemText(it) {
+  return typeof it === 'object' ? (it.text || '') : String(it || '');
+}
+/* 角标徽标 HTML:kw/target 一律转义,防止破坏标记(文本与 title 属性) */
+function refTagHtml(ref) {
+  var title = esc('[' + ref.kw + ':' + ref.target + ']');
+  return '<i class="ref-tag" title="' + title + '">' + esc(ref.kw) + '\u00b7' + esc(ref.target) + '</i>';
+}
+
 /* ================= 缩进文本解析（从文本生成图） ================= */
 function parseIndented(text) {
   const lines = text.split(/\r?\n/);
@@ -246,9 +295,11 @@ function parseIndented(text) {
       block.items.push(...t.split(/[,，、;/]+/).map(s => s.trim()).filter(Boolean));
     }
   }
-  result.schemaVersion = 1;
+  result.schemaVersion = 2;
   result.title = (result.layers[0] && result.layers[0].name) || '未命名架构图';
   result.subtitle = '';
   result.layout = 'layered';
+  result.connections = [];
+  result.showConnections = false;
   return result;
 }

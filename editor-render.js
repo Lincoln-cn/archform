@@ -10,6 +10,7 @@ function render() {
   });
   renderTree();
   applyZoom(currentFit || zoom, true);   // 渲染后保持当前缩放
+  drawConnections();
 }
 
 function renderBody() {
@@ -19,6 +20,9 @@ function renderBody() {
   let body = '';
   if (d.layout === 'layered') {
     body = renderLayered(d);
+    if (d.showConnections && (d.connections || []).length > 0) {
+      body = '<div class="lay-stack">' + body + '</div>';
+    }
     if (d.sidebar && d.sidebar.length) {
       const w = d.sidebarWidth || 460;
       body = '<div class="side-layout" style="--sidebar-w:' + w + 'px">' +
@@ -46,7 +50,12 @@ function renderLegend(d) {
 /* ---- 右侧垂直通栏（体系说明） ---- */
 function renderSidebar(d) {
   const bars = (d.sidebar || []).map(b => {
-    const items = (b.items || []).map(it => '<div class="sb-item">' + esc(it) + '</div>').join('');
+    const items = (b.items || []).map(it => {
+      var t = itemText(it), r = splitRefs(t);
+      var inner = esc(r.plain) + r.refs.map(refTagHtml).join('');
+      var cls = (r.refs.length || r.plain) ? 'sb-item' + (r.refs.length ? ' has-ref' : '') : 'sb-item';
+      return '<div class="' + cls + '"' + (r.refs.length ? ' title="' + esc(t) + '"' : '') + '>' + inner + '</div>';
+    }).join('');
     const cls = (b.items && b.items.length) ? 'sbar' : 'sbar no-items';
     return '<div class="' + cls + '" data-id="' + b.id + '">' +
            '<div class="sb-title" style="background:' + (b.color || '#2379bd') + '" data-id="' + b.id + '">' + esc(b.title) + '</div>' +
@@ -63,7 +72,12 @@ function renderLayered(d) {
     const groups = (layer.groups || []).map(g => {
       const blocks = (g.blocks || []).map(b => {
         const spanCls = b.span === 2 ? ' span2' : '';
-        const items = (b.items || []).map(it => '<span class="item">' + esc(it) + '</span>').join('');
+        const items = (b.items || []).map(it => {
+          var t = itemText(it), r = splitRefs(t);
+          var inner = esc(r.plain) + r.refs.map(refTagHtml).join('');
+          var cls = 'item' + (r.refs.length ? ' has-ref' : '');
+          return '<span class="' + cls + '"' + (r.refs.length ? ' title="' + esc(t) + '"' : '') + '>' + inner + '</span>';
+        }).join('');
         return '<div class="card' + spanCls + '" data-id="' + b.id + '">' +
                '<div class="t">' + esc(b.title) + '</div>' +
                (items ? '<div class="items">' + items + '</div>' : '') + '</div>';
@@ -89,9 +103,15 @@ function renderCards(d) {
     const groups = (c.groups || []).map(g => {
       const rows = (g.blocks || []).map(b => {
         const tags = (b.items || []).map(it => {
-          let cls = 'tag';
-          if (typeof it === 'object') cls += ' ' + (it.cat ? 'cat-' + it.cat : '') + (it.reuse ? ' reuse' : '');
-          return '<span class="' + cls + '">' + esc(typeof it === 'object' ? it.text : it) + '</span>';
+          var t = itemText(it), r = splitRefs(t);
+          var extra = (typeof it === 'object') ? (' ' + (it.cat ? 'cat-' + it.cat : '') + (it.reuse ? ' reuse' : '')) : '';
+          var out = '';
+          if (r.plain || !r.refs.length) out += '<span class="tag' + extra + '">' + esc(r.plain || t) + '</span>';
+          out += r.refs.map(ref => {
+            var title = esc('[' + ref.kw + ':' + ref.target + ']');
+            return '<span class="tag ref-badge" title="' + title + '">' + esc(ref.kw) + '\u00b7' + esc(ref.target) + '</span>';
+          }).join('');
+          return out;
         }).join('');
         return '<div class="dl3-item" data-id="' + b.id + '">' +
                '<div><div class="dl3-name">' + esc(b.title) + '</div>' +
