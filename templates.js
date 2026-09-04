@@ -1526,5 +1526,345 @@ window.ARCH_TEMPLATES = {
     ]
    }
   ]
+ },
+
+ /* ============ 10. 数据流转·横向流向 ============ */
+ "flow-data": {
+  "schemaVersion": 2,
+  "id": "fd-1",
+  "title": "数据流转·横向流向",
+  "subtitle": "数据源 → 数据集成 → ODS 贴源 → DWD 明细 → DWS 汇总 → ADS/数据服务（层间箭头=流向,仅相邻列）",
+  "layout": "flow",
+  "connections": [
+   { "id": "fd-c1", "from": "fd-2", "to": "fd-3", "label": "抽取", "style": "solid" },
+   { "id": "fd-c2", "from": "fd-3", "to": "fd-4", "label": "贴源", "style": "dashed" },
+   { "id": "fd-c3", "from": "fd-4", "to": "fd-5", "label": "清洗", "style": "solid" },
+   { "id": "fd-c4", "from": "fd-5", "to": "fd-6", "label": "汇总", "style": "dashed" },
+   { "id": "fd-c5", "from": "fd-6", "to": "fd-7", "label": "服务", "style": "solid" }
+  ],
+  "showConnections": true,
+  "legend": [
+   { "id": "fd-l1", "color": "#2f80c2", "title": "数据源" },
+   { "id": "fd-l2", "color": "#2379bd", "title": "数据集成" },
+   { "id": "fd-l3", "color": "#1a5c94", "title": "ODS 贴源" },
+   { "id": "fd-l4", "color": "#143c66", "title": "DWD 明细" },
+   { "id": "fd-l5", "color": "#0e2a47", "title": "DWS 汇总" },
+   { "id": "fd-l6", "color": "#0e7a8a", "title": "ADS / 数据服务" }
+  ],
+  "layers": [
+   {
+    "id": "fd-2",
+    "name": "数据源",
+    "bandColor": "#2f80c2",
+    "cols": 1,
+    "stat": "3 类数据源",
+    "groups": [
+     {
+      "id": "fd-g1",
+      "title": "数据源",
+      "blocks": [
+       { "id": "fd-b1", "title": "业务库", "items": ["订单库", "用户库", "商品库"] },
+       { "id": "fd-b2", "title": "日志库", "items": ["访问日志", "操作日志", "埋点日志"] },
+       { "id": "fd-b3", "title": "外部数据", "items": ["第三方接口", "文件交换", "数据订阅"] }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fd-3",
+    "name": "数据集成",
+    "bandColor": "#2379bd",
+    "cols": 1,
+    "stat": "2 集成方式",
+    "groups": [
+     {
+      "id": "fd-g2",
+      "title": "集成方式",
+      "blocks": [
+       { "id": "fd-b4", "title": "CDC 实时采集", "items": ["Binlog 监听", "变更事件推送", "断点续传"] },
+       { "id": "fd-b5", "title": "批量抽取", "items": ["全量同步", "增量同步", "调度编排"] }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fd-4",
+    "name": "ODS 贴源层",
+    "bandColor": "#1a5c94",
+    "cols": 1,
+    "stat": "与源系统结构一致",
+    "groups": [
+     {
+      "id": "fd-g3",
+      "title": "贴源存储",
+      "blocks": [
+       { "id": "fd-b6", "title": "贴源明细表", "items": ["业务原始快照", "增量变更日志"] },
+       { "id": "fd-b7", "title": "数据质量校验", "items": ["空值检查", "一致性校验", "去重处理"] }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fd-5",
+    "name": "DWD 明细层",
+    "bandColor": "#143c66",
+    "cols": 1,
+    "stat": "主题域明细模型",
+    "groups": [
+     {
+      "id": "fd-g4",
+      "title": "明细建模",
+      "blocks": [
+       { "id": "fd-b8", "title": "交易明细", "items": ["订单事实表", "支付流水表", "退款明细"] },
+       { "id": "fd-b9", "title": "行为明细", "items": ["浏览事实表", "搜索事实表", "点击事件表"] }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fd-6",
+    "name": "DWS 汇总层",
+    "bandColor": "#0e2a47",
+    "cols": 1,
+    "stat": "面向分析主题汇总",
+    "groups": [
+     {
+      "id": "fd-g5",
+      "title": "汇总模型",
+      "blocks": [
+       { "id": "fd-b10", "title": "经营汇总", "items": ["日销售汇总", "渠道汇总", "客户分层"] },
+       { "id": "fd-b11", "title": "行为汇总", "items": ["活跃用户汇总", "转化漏斗汇总"] }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fd-7",
+    "name": "ADS / 数据服务",
+    "bandColor": "#0e7a8a",
+    "cols": 1,
+    "stat": "统一对外数据出口",
+    "groups": [
+     {
+      "id": "fd-g6",
+      "title": "数据服务",
+      "blocks": [
+       { "id": "fd-b12", "title": "指标服务", "items": ["经营指标", "风险指标", "实时指标"] },
+       { "id": "fd-b13", "title": "标签服务", "items": ["用户标签", "商品标签", "行为标签"] },
+       { "id": "fd-b14", "title": "数据 API", "items": ["查询接口", "推送接口", "订阅接口"] }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+
+ /* ============ 11. 服务调用链路·横向流向 ============ */
+ "flow-api": {
+  "schemaVersion": 2,
+  "id": "fa-1",
+  "title": "服务调用链路·横向流向",
+  "subtitle": "客户端 → 接入层 → 服务层 → 数据层 → 监控审计（层间箭头=调用链,仅相邻列）",
+  "layout": "flow",
+  "connections": [
+   { "id": "fa-c1", "from": "fa-2", "to": "fa-3", "label": "路由", "style": "solid" },
+   { "id": "fa-c2", "from": "fa-3", "to": "fa-4", "label": "转发", "style": "dashed" },
+   { "id": "fa-c3", "from": "fa-4", "to": "fa-5", "label": "调用", "style": "solid" },
+   { "id": "fa-c4", "from": "fa-5", "to": "fa-6", "label": "读写", "style": "dashed" }
+  ],
+  "showConnections": true,
+  "legend": [
+   { "id": "fa-l1", "color": "#4db8ff", "title": "客户端" },
+   { "id": "fa-l2", "color": "#2f80c2", "title": "接入层" },
+   { "id": "fa-l3", "color": "#2379bd", "title": "服务层" },
+   { "id": "fa-l4", "color": "#1a5c94", "title": "数据层" },
+   { "id": "fa-l5", "color": "#0e2a47", "title": "监控 / 审计" }
+  ],
+  "layers": [
+   {
+    "id": "fa-2",
+    "name": "客户端",
+    "bandColor": "#4db8ff",
+    "cols": 1,
+    "stat": "3 类终端",
+    "groups": [
+     {
+      "id": "fa-g1",
+      "title": "终端接入",
+      "blocks": [
+       { "id": "fa-b1", "title": "Web 端", "items": ["PC 门户", "H5 移动端"] },
+       { "id": "fa-b2", "title": "移动端", "items": ["原生 App", "小程序"] },
+       { "id": "fa-b3", "title": "开放平台", "items": ["OpenAPI", "SDK 接入", "Webhook"] }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fa-3",
+    "name": "接入层",
+    "bandColor": "#2f80c2",
+    "cols": 1,
+    "stat": "流量接入与安全",
+    "groups": [
+     {
+      "id": "fa-g2",
+      "title": "接入网关",
+      "blocks": [
+       { "id": "fa-b4", "title": "API 网关", "items": ["路由转发", "协议转换", "灰度发布"] },
+       { "id": "fa-b5", "title": "负载均衡", "items": ["四层转发", "七层转发", "会话保持"] },
+       { "id": "fa-b6", "title": "安全防护", "items": ["鉴权认证", "限流熔断", "WAF 防护"] }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fa-4",
+    "name": "服务层",
+    "bandColor": "#2379bd",
+    "cols": 1,
+    "stat": "4 个核心服务",
+    "groups": [
+     {
+      "id": "fa-g3",
+      "title": "业务服务",
+      "blocks": [
+       { "id": "fa-b7", "title": "用户服务", "items": ["注册登录", "资料管理", "权限校验"] },
+       { "id": "fa-b8", "title": "订单服务", "items": ["下单处理", "状态流转", "订单查询"] },
+       { "id": "fa-b9", "title": "库存服务", "items": ["库存查询", "库存扣减", "库存回补"] },
+       { "id": "fa-b10", "title": "支付服务", "items": ["收单处理", "退款处理", "对账核查"] }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fa-5",
+    "name": "数据层",
+    "bandColor": "#1a5c94",
+    "cols": 1,
+    "stat": "持久化与缓存",
+    "groups": [
+     {
+      "id": "fa-g4",
+      "title": "数据存储",
+      "blocks": [
+       { "id": "fa-b11", "title": "业务库", "items": ["主库实例", "只读副本", "分库分表"] },
+       { "id": "fa-b12", "title": "缓存", "items": ["分布式缓存", "本地缓存", "缓存策略"] },
+       { "id": "fa-b13", "title": "搜索", "items": ["全文检索", "索引管理"] }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fa-6",
+    "name": "监控 / 审计",
+    "bandColor": "#0e2a47",
+    "cols": 1,
+    "stat": "可观测性与合规",
+    "groups": [
+     {
+      "id": "fa-g5",
+      "title": "监控与审计",
+      "blocks": [
+       { "id": "fa-b14", "title": "链路监控", "items": ["调用链追踪", "耗时分析", "错误定位"] },
+       { "id": "fa-b15", "title": "审计日志", "items": ["操作审计", "接口审计", "合规报告"] }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+
+ /* ============ 12. 事件流·横向流向 ============ */
+ "flow-events": {
+  "schemaVersion": 2,
+  "id": "fe-1",
+  "title": "事件流·横向流向",
+  "subtitle": "事件源 → 消息平台 → 实时计算 → 落地存储（层间箭头=事件流向,仅相邻列）",
+  "layout": "flow",
+  "connections": [
+   { "id": "fe-c1", "from": "fe-2", "to": "fe-3", "label": "发布", "style": "solid" },
+   { "id": "fe-c2", "from": "fe-3", "to": "fe-4", "label": "订阅", "style": "dashed" },
+   { "id": "fe-c3", "from": "fe-4", "to": "fe-5", "label": "写入", "style": "solid" }
+  ],
+  "showConnections": true,
+  "legend": [
+   { "id": "fe-l1", "color": "#2f80c2", "title": "事件源" },
+   { "id": "fe-l2", "color": "#2379bd", "title": "消息平台" },
+   { "id": "fe-l3", "color": "#1a5c94", "title": "实时计算" },
+   { "id": "fe-l4", "color": "#143c66", "title": "落地存储" }
+  ],
+  "layers": [
+   {
+    "id": "fe-2",
+    "name": "事件源",
+    "bandColor": "#2f80c2",
+    "cols": 1,
+    "stat": "3 类事件生产者",
+    "groups": [
+     {
+      "id": "fe-g1",
+      "title": "事件生产",
+      "blocks": [
+       { "id": "fe-b1", "title": "交易事件", "items": ["下单事件", "支付事件", "退款事件"] },
+       { "id": "fe-b2", "title": "行为事件", "items": ["浏览事件", "搜索事件", "点击事件"] },
+       { "id": "fe-b3", "title": "系统日志", "items": ["应用日志", "服务日志", "告警日志"] }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fe-3",
+    "name": "消息平台",
+    "bandColor": "#2379bd",
+    "cols": 1,
+    "stat": "消息中间件",
+    "groups": [
+     {
+      "id": "fe-g2",
+      "title": "消息中间件",
+      "blocks": [
+       { "id": "fe-b4", "title": "Topic 管理", "items": ["业务 Topic", "日志 Topic", "系统 Topic"] },
+       { "id": "fe-b5", "title": "分区策略", "items": ["按业务键分区", "轮询分区", "自定义路由"] },
+       { "id": "fe-b6", "title": "消费组", "items": ["实时消费组", "离线消费组", "审计消费组"] }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fe-4",
+    "name": "实时计算",
+    "bandColor": "#1a5c94",
+    "cols": 1,
+    "stat": "流处理引擎",
+    "groups": [
+     {
+      "id": "fe-g3",
+      "title": "流处理",
+      "blocks": [
+       { "id": "fe-b7", "title": "流处理引擎", "items": ["事件过滤", "窗口聚合", "流关联"] },
+       { "id": "fe-b8", "title": "实时指标", "items": ["实时 PV/UV", "实时交易额", "实时告警"] }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fe-5",
+    "name": "落地存储",
+    "bandColor": "#143c66",
+    "cols": 1,
+    "stat": "持久化存储",
+    "groups": [
+     {
+      "id": "fe-g4",
+      "title": "存储层",
+      "blocks": [
+       { "id": "fe-b9", "title": "明细存储", "items": ["事件明细表", "行为轨迹表"] },
+       { "id": "fe-b10", "title": "汇总存储", "items": ["指标汇总表", "标签宽表"] },
+       { "id": "fe-b11", "title": "数据湖", "items": ["原始事件归档", "冷数据沉淀"] }
+      ]
+     }
+    ]
+   }
+  ]
  }
 };

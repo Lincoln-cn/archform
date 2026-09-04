@@ -37,7 +37,7 @@ Layered architecture diagrams are roughly 90% nested structure — **Layer → G
 - **Auto statistics** — each layer shows its group / block / item counts automatically (toggleable per layer)
 - **Fully offline** — export vector **SVG**, high-resolution **PNG** (2×), or a standalone **HTML** file with embedded vector data; zero network requests, zero runtime dependencies, double-click `file://` to run
 - **Versioned data** — every diagram carries a `schemaVersion` and is auto-migrated on load (`migrateDiagram`); JSON import/export plus `localStorage` autosave
-- **Nine built-in templates** — Generic Layered, Overall Architecture, Application Architecture, Data Architecture (data-warehouse layering), Technology Architecture, Middle Platform, Cloud Platform, Microservices, Security (MLPS 2.0)
+- **Twelve built-in templates** — Generic Layered, Overall Architecture, Application Architecture, Data Architecture (data-warehouse layering), Technology Architecture, Middle Platform, Cloud Platform, Microservices, Security (MLPS 2.0), plus 3 flow-layout templates: Data Flow, Service Call Chain, Event Stream
 - **Layer connections** — optional inter-layer connection lines (layered layout only); arrows with labels and line styles; toggle via View menu
 - **Module badges** — `[call:xx]` / `[depends:xx]` tags in item lists rendered as inline badges across all layouts
 - **Export draw.io** — escape hatch: export `.drawio` XML for further editing in draw.io (free-form curves, complex layouts)
@@ -77,6 +77,9 @@ No GitHub? Drop the folder on any static host or intranet share — `index.html`
 | Cloud Platform | layered | Access → Cloud management → SaaS → PaaS → IaaS → Infrastructure |
 | Microservices | layered | API gateway → Business services → Common components → Data layer (connection demos) |
 | Security (MLPS 2.0) | layered | Physical → Network → Boundary → Computing → Security management center |
+| Data Flow | flow | Source → Integration → ODS → DWD → DWS → ADS/Service (horizontal flow with labeled arrows) |
+| Service Call Chain | flow | Client → Gateway → Services → Data layer → Monitoring/Audit (call-chain flow) |
+| Event Stream | flow | Event source → Message platform → Stream processing → Sink storage (event-driven flow) |
 
 Templates are plain data in `templates.js` — copy the JSON structure to add your own.
 

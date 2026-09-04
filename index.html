@@ -282,6 +282,10 @@
     padding:5px;font-size:12px;cursor:pointer;font-family:inherit;
   }
   .scheme-btn:hover{background:#eef5fc}
+  /* 模板菜单(分组小标题+按钮缩进) */
+  #menu-tpl{min-width:190px}
+  .tpl-cat{font-size:11px;color:#8a9fb5;padding:5px 12px 2px;background:none;border:0;cursor:default;text-align:left;display:block;width:100%}
+  #menu-tpl button[data-tpl-key]{padding-left:18px}
   #app{display:grid;grid-template-columns:260px 1fr 300px;gap:0;height:calc(100vh - 52px)}
   #treePanel,#propPanel{
     background:#f7f9fc;border-right:1px solid #d8dee6;overflow-y:auto;overflow-x:hidden;padding:10px;
@@ -569,11 +573,10 @@
       <button type="button" id="schemeReset" class="scheme-btn">恢复默认（经典蓝）</button>
     </div>
   </div>
-  <label>模板</label>
-  <select id="selTemplate">
-    <option value="">— 选择预置模板 —</option>
-  </select>
-  <button type="button" id="btnLoadTemplate">加载</button>
+  <div class="menu">
+    <button type="button" class="menu-btn" data-menu="tpl">模板 ▾</button>
+    <div class="menu-drop" id="menu-tpl"></div>
+  </div>
   <span class="spacer"></span>
   <label>缩放</label>
   <input type="range" id="zoomRange" min="30" max="200" value="100" style="width:110px">

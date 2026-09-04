@@ -537,25 +537,39 @@ async function exportPng() {
   }
 }
 
-/* ================= 模板加载 ================= */
-function fillTemplateSelect() {
-  const sel = document.getElementById('selTemplate');
+/* ================= 模板菜单 ================= */
+function fillTplMenu() {
   const tpls = (window.ARCH_TEMPLATES || {});
-  sel.innerHTML = '<option value="">— 选择预置模板 —</option>' +
-    Object.keys(tpls).map(k => '<option value="' + k + '">' + esc(tpls[k].title || k) + '</option>').join('');
+  const groups = { flow: [], layered: [] };
+  Object.keys(tpls).forEach(k => {
+    const t = tpls[k];
+    const lt = (t.layout === 'flow') ? 'flow' : 'layered';
+    groups[lt].push({ key: k, title: t.title || k });
+  });
+  const catNames = { flow: '横向布局', layered: '纵向布局' };
+  let html = '';
+  ['flow', 'layered'].forEach(cat => {
+    const arr = groups[cat];
+    if (!arr.length) return;
+    html += '<span class="tpl-cat">' + catNames[cat] + '</span>';
+    arr.forEach(item => {
+      html += '<button type="button" data-tpl-key="' + esc(item.key) + '">' + esc(item.title) + '</button>';
+    });
+  });
+  const el = document.getElementById('menu-tpl');
+  if (el) el.innerHTML = html;
 }
-function loadTemplate() {
-  const key = document.getElementById('selTemplate').value;
+function loadTemplateByKey(key) {
   const tpls = window.ARCH_TEMPLATES || {};
   if (!key || !tpls[key]) return;
   pushUndo();
-  const migrated = migrateDiagram(JSON.parse(JSON.stringify(tpls[key])));   // 深拷贝 + 版本迁移
+  const migrated = migrateDiagram(JSON.parse(JSON.stringify(tpls[key])));
   if (!migrated || migrated.error) { alert(migrated ? migrated.error : '模板数据无效'); return; }
-  const prevTheme = diagram && diagram.theme;    // 记住已选配色，模板加载后按同方案重绘
+  const prevTheme = diagram && diagram.theme;
   diagram = migrated;
   selectedId = null;
   if (prevTheme) {
-    _undoSuppressed = true;   // applyScheme 内部也有 pushUndo，此处已 push 过，抑制重复
+    _undoSuppressed = true;
     applyScheme(prevTheme.custom
       ? { id: '__custom', custom: true, colors: prevTheme.custom, vars: prevTheme.vars }
       : COLOR_SCHEMES.find(s => s.id === prevTheme.id) || COLOR_SCHEMES[0]);
@@ -627,7 +641,6 @@ function applyCustomScheme() {
 /* ================= 事件绑定 ================= */
 function bindEvents() {
   // 工具栏
-  document.getElementById('btnLoadTemplate').addEventListener('click', loadTemplate);
   document.getElementById('btnAddLayer').addEventListener('click', () => {
     if (!diagram) diagram = newDiagram();
     pushUndo();
@@ -728,6 +741,7 @@ function bindEvents() {
       closeMenus();
       if (!wasOpen) {
         if (btn.getAttribute('data-menu') === 'scheme') fillSchemeMenu();   // 打开配色菜单时刷新
+        if (btn.getAttribute('data-menu') === 'tpl') fillTplMenu();         // 打开模板菜单时刷新
         drop.classList.add('open');
       }
     });
@@ -751,6 +765,8 @@ function bindEvents() {
   // 菜单命令分发
   document.querySelectorAll('.menu-drop').forEach(drop => {
     drop.addEventListener('click', e => {
+      const tk = e.target.closest('[data-tpl-key]');
+      if (tk) { loadTemplateByKey(tk.getAttribute('data-tpl-key')); closeMenus(); return; }
       const item = e.target.closest('[data-cmd]');
       if (!item) return;
       const cmd = item.getAttribute('data-cmd');
@@ -868,7 +884,6 @@ function init() {
   if (sMark > -1 && eMark > sMark) {
     ARCH_CSS = st.slice(st.lastIndexOf('/*', sMark), eMark);
   }
-  fillTemplateSelect();
   bindEvents();
   try {
     const saved = localStorage.getItem(LS_KEY);
