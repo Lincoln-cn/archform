@@ -30,7 +30,7 @@ Layered architecture diagrams are roughly 90% nested structure — **Layer → G
 - **Structured input** — edit a four-level tree (Diagram → Layer → Group → Block → Item); a quick-add bar at the bottom of the tree types nodes with Enter / Tab / Shift+Tab, and a right-click context menu covers new / copy / paste / move up / move down / delete
 - **Undo / redo** — 50-step history across every edit (structure, properties, color schemes, template loads), Ctrl+Z / Ctrl+Shift+Z
 - **Automatic layout** — two paradigms over the same data, switchable without losing anything: *layered* and *flow* (horizontal); legacy cards/central data auto-converts to layered on open
-- **Enforced style spec** — dashed panels, 2px corners, fixed type scale; six preset color schemes plus a custom six-shade palette, saved with the diagram (pillar bars included)
+- **Enforced style spec** — dashed panels, 2px corners, fixed type scale; 6 theme palettes with hierarchical tokens, plus a custom six-shade palette, saved with the diagram (pillar bars included)
 - **Built for architecture reviews** — a bottom legend bar and right-side pillar bars for cross-cutting concerns such as security, operations, and governance
 - **Bulk input from text** — File → **From Text** turns indented text into a whole diagram with a live structure preview; no need to hand-drag boxes
 - **Copy & paste structure** — deep-clone any layer / group / block (Ctrl+C / Ctrl+V); pasted copies keep the same shape with fresh IDs, inserted as a sibling or child depending on the target

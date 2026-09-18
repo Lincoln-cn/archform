@@ -114,12 +114,12 @@ function connSvgXml() {
   var parts = [];
   /* 独立 marker id 防与 DOM overlay 混淆 */
   parts.push('<defs><marker id="connArrX" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">' +
-    '<path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/></marker></defs>');
+    '<path d="M0,0 L8,3 L0,6 Z" fill="#475569"/></marker></defs>');
   items.forEach(function(it) {
     var dash = '';
     if (it.style === 'dashed') dash = ' stroke-dasharray="6 4"';
     else if (it.style === 'dotted') dash = ' stroke-dasharray="2 4"';
-    parts.push('<path d="' + it.d + '" fill="none" stroke="#64748b" stroke-width="1.5"' +
+    parts.push('<path d="' + it.d + '" fill="none" stroke="#475569" stroke-width="1.5"' +
       ' marker-end="url(#connArrX)"' + dash + '/>');
     if (it.label) {
       var tw = it.label.length * 11 + 10, th = 18;
@@ -306,7 +306,7 @@ function drawConnections() {
   marker.setAttribute('orient', 'auto');
   var arrowPath = document.createElementNS(ns, 'path');
   arrowPath.setAttribute('d', 'M0,0 L8,3 L0,6 Z');
-  arrowPath.setAttribute('fill', '#64748b');
+  arrowPath.setAttribute('fill', '#475569');
   marker.appendChild(arrowPath);
   defs.appendChild(marker);
   svg.appendChild(defs);
@@ -314,7 +314,7 @@ function drawConnections() {
     var path = document.createElementNS(ns, 'path');
     path.setAttribute('d', it.d);
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', '#64748b');
+    path.setAttribute('stroke', '#475569');
     path.setAttribute('stroke-width', '1.5');
     path.setAttribute('marker-end', 'url(#connArr)');
     if (it.style === 'dashed') path.setAttribute('stroke-dasharray', '6 4');

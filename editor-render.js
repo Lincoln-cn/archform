@@ -103,7 +103,7 @@ function renderLayered(d) {
     const stat = statText ? '<span class="stat">' + esc(statText) + '</span>' : '';
     return '<section class="layer" data-id="' + layer.id + '">' +
            '<div class="band" data-id="' + layer.id + '" style="background:' + (layer.bandColor || '#2379bd') + '">' + esc(layer.name) + '</div>' +
-           '<div class="body">' +
+           '<div class="body" style="background:' + tintColor(layer.bandColor || '#2379bd', 0.93) + '">' +
            '<div class="layer-head" data-id="' + layer.id + '"><span class="zh">' + esc(layer.name) + '</span>' + stat + '</div>' +
            '<div class="groups ' + colCls + '">' + groups + '</div>' +
            '</div></section>';
@@ -145,7 +145,7 @@ function renderFlow(d) {
       return '<section class="layer flow-col" data-id="' + layer.id + '"' + ml + '>' +
              '<div class="band flow-band" data-id="' + layer.id + '" style="background:' + (layer.bandColor || '#2379bd') + '">' +
              '<span class="band-title">' + esc(layer.name) + '</span>' + stat + '</div>' +
-             '<div class="body">' +
+             '<div class="body" style="background:' + tintColor(layer.bandColor || '#2379bd', 0.93) + '">' +
              '<div class="groups col1">' + groups + '</div>' +
              '</div></section>';
     }).join('') +

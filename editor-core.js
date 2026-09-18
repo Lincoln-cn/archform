@@ -135,7 +135,13 @@ function pushUndo() {
   redoStack.length = 0;
 }
 
-const DEFAULT_THEME_VARS = { '--blue':'#2379bd', '--blue2':'#2f80c2', '--dash':'#2c78c2', '--panel':'#c8ddef', '--bg':'#ffffff', '--text':'#26384a' };
+const DEFAULT_THEME_VARS = {
+  '--blue': '#2379bd', '--blue2': '#2f80c2', '--dash': '#2c78c2', '--panel': '#c8ddef',
+  '--bg': '#ffffff', '--text': '#26384a',
+  '--group-bg': '#e8f1f9', '--group-border': '#b9d8f0', '--group-ink': '#183c63',
+  '--card-bg': '#dbeaf7', '--card-border': '#8ebbdc', '--card-ink': '#1a5c94',
+  '--ink-muted': '#5a7a9a'
+};
 
 function undo() {
   if (!undoStack.length) return;
@@ -236,6 +242,31 @@ function nodeName(node) {
 
 /* ================= 渲染引擎 ================= */
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* 颜色工具:hex→rgb→hex;mixColor(hex, amt, base) 将 hex 与 base(默认白)按 amt(0~1)混合 */
+function hexToRgb(hex) {
+  if (typeof hex !== 'string') return null;
+  var s = hex.replace(/\s+/g, '');
+  if (s.charAt(0) === '#') s = s.slice(1);
+  if (/^[0-9a-fA-F]{3}$/.test(s)) s = s.charAt(0) + s.charAt(0) + s.charAt(1) + s.charAt(1) + s.charAt(2) + s.charAt(2);
+  if (!/^[0-9a-fA-F]{6}$/.test(s)) return null;
+  return { r: parseInt(s.slice(0, 2), 16), g: parseInt(s.slice(2, 4), 16), b: parseInt(s.slice(4, 6), 16) };
+}
+function rgbToHex(r, g, b) {
+  var h = function (n) {
+    var v = Math.max(0, Math.min(255, Math.round(Number(n) || 0)));
+    return (v < 16 ? '0' : '') + v.toString(16);
+  };
+  return '#' + h(r) + h(g) + h(b);
+}
+function mixColor(hex, amt, base) {
+  var a = hexToRgb(hex);
+  if (!a) return typeof hex === 'string' && hex.trim() ? hex.trim() : '#cccccc';
+  var b = hexToRgb(base) || { r: 255, g: 255, b: 255 };
+  var t = (typeof amt === 'number' && isFinite(amt)) ? Math.max(0, Math.min(1, amt)) : 0.5;
+  return rgbToHex(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t);
+}
+function tintColor(hex, amt) { return mixColor(hex, amt, '#ffffff'); }
 
 /* 角标解析:items 文本中 [kw:target](kw 白名单)渲染为角标 */
 const REF_KWS = ['调用','依赖','数据','接口','推送','订阅'];

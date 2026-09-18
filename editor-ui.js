@@ -580,13 +580,30 @@ function loadTemplateByKey(key) {
 }
 
 /* ================= 配色方案 ================= */
+/* 语义 token:分组/卡片/条目/文字,保证多层展示下主题贯穿(层带→层底→分组→卡→条目) */
+function deriveHierTokens(colors) {
+  const c = colors || [];
+  const mid = c[2] || '#2379bd';
+  const c1 = c[1] || mid;
+  const c3 = c[3] || '#143c66';
+  const c4 = c[4] || '#0e2a47';
+  return {
+    '--group-bg': tintColor(mid, 0.88),
+    '--group-border': tintColor(c1, 0.62),
+    '--group-ink': c3,
+    '--card-bg': tintColor(mid, 0.78),
+    '--card-border': tintColor(c1, 0.45),
+    '--card-ink': c4,
+    '--ink-muted': mixColor(c3, 0.42, '#8a9aaa')
+  };
+}
 const COLOR_SCHEMES = [
-  { id: 'blue', name: '经典蓝', colors: ['#2f80c2', '#2379bd', '#1a5c94', '#143c66', '#0e2a47', '#0e7a8a'], vars: { '--blue': '#2379bd', '--blue2': '#2f80c2', '--dash': '#2c78c2', '--panel': '#c8ddef', '--sbar': '#183c63', '--sbar-border': '#2c78c2' } },
-  { id: 'green', name: '青绿', colors: ['#34d399', '#10b981', '#059669', '#047857', '#065f46', '#0e7490'], vars: { '--blue': '#059669', '--blue2': '#10b981', '--dash': '#10b981', '--panel': '#d1fae5', '--sbar': '#064e3b', '--sbar-border': '#10b981' } },
-  { id: 'violet', name: '紫罗兰', colors: ['#a78bfa', '#8b5cf6', '#7c3aed', '#6d28d9', '#5b21b6', '#4c1d95'], vars: { '--blue': '#7c3aed', '--blue2': '#8b5cf6', '--dash': '#8b5cf6', '--panel': '#ede9fe', '--sbar': '#3b0764', '--sbar-border': '#8b5cf6' } },
-  { id: 'amber', name: '暖橙', colors: ['#fbbf24', '#f59e0b', '#d97706', '#b45309', '#92400e', '#c2410c'], vars: { '--blue': '#d97706', '--blue2': '#f59e0b', '--dash': '#f59e0b', '--panel': '#fef3c7', '--sbar': '#78350f', '--sbar-border': '#f59e0b' } },
-  { id: 'forest', name: '墨绿', colors: ['#4ade80', '#22c55e', '#16a34a', '#15803d', '#166534', '#14532d'], vars: { '--blue': '#16a34a', '--blue2': '#22c55e', '--dash': '#4ade80', '--panel': '#dcfce7', '--sbar': '#14532d', '--sbar-border': '#22c55e' } },
-  { id: 'slate', name: '灰蓝', colors: ['#64748b', '#475569', '#334155', '#1e293b', '#0f172a', '#0369a1'], vars: { '--blue': '#334155', '--blue2': '#475569', '--dash': '#94a3b8', '--panel': '#e2e8f0', '--sbar': '#0f172a', '--sbar-border': '#64748b' } }
+  { id: 'blue', name: '经典蓝', colors: ['#2f80c2', '#2379bd', '#1a5c94', '#143c66', '#0e2a47', '#0e7a8a'], vars: { '--blue': '#2379bd', '--blue2': '#2f80c2', '--dash': '#2c78c2', '--panel': '#c8ddef', '--sbar': '#183c63', '--sbar-border': '#2c78c2', '--group-bg': '#e8f1f9', '--group-border': '#b9d8f0', '--group-ink': '#183c63', '--card-bg': '#dbeaf7', '--card-border': '#8ebbdc', '--card-ink': '#1a5c94', '--ink-muted': '#5a7a9a' } },
+  { id: 'green', name: '青绿', colors: ['#34d399', '#10b981', '#059669', '#047857', '#065f46', '#0e7490'], vars: { '--blue': '#059669', '--blue2': '#10b981', '--dash': '#10b981', '--panel': '#d1fae5', '--sbar': '#064e3b', '--sbar-border': '#10b981', '--group-bg': '#e7f8f1', '--group-border': '#a7e0c7', '--group-ink': '#064e3b', '--card-bg': '#d1fae5', '--card-border': '#6ee7b7', '--card-ink': '#065f46', '--ink-muted': '#4b7c6a' } },
+  { id: 'violet', name: '紫罗兰', colors: ['#a78bfa', '#8b5cf6', '#7c3aed', '#6d28d9', '#5b21b6', '#4c1d95'], vars: { '--blue': '#7c3aed', '--blue2': '#8b5cf6', '--dash': '#8b5cf6', '--panel': '#ede9fe', '--sbar': '#3b0764', '--sbar-border': '#8b5cf6', '--group-bg': '#eee5fd', '--group-border': '#cbb0f8', '--group-ink': '#3b0764', '--card-bg': '#ddd0fb', '--card-border': '#b495f9', '--card-ink': '#5b21b6', '--ink-muted': '#7c6aa8' } },
+  { id: 'amber', name: '暖橙', colors: ['#fbbf24', '#f59e0b', '#d97706', '#b45309', '#92400e', '#c2410c'], vars: { '--blue': '#d97706', '--blue2': '#f59e0b', '--dash': '#f59e0b', '--panel': '#fef3c7', '--sbar': '#78350f', '--sbar-border': '#f59e0b', '--group-bg': '#faefe1', '--group-border': '#e8b86d', '--group-ink': '#78350f', '--card-bg': '#f6ddc1', '--card-border': '#e0a860', '--card-ink': '#92400e', '--ink-muted': '#8f6d52' } },
+  { id: 'forest', name: '墨绿', colors: ['#4ade80', '#22c55e', '#16a34a', '#15803d', '#166534', '#14532d'], vars: { '--blue': '#16a34a', '--blue2': '#22c55e', '--dash': '#4ade80', '--panel': '#dcfce7', '--sbar': '#14532d', '--sbar-border': '#22c55e', '--group-bg': '#e3f4e9', '--group-border': '#a7e8bf', '--group-ink': '#14532d', '--card-bg': '#ccebd7', '--card-border': '#85dfa6', '--card-ink': '#166534', '--ink-muted': '#4a7a5c' } },
+  { id: 'slate', name: '灰蓝', colors: ['#64748b', '#475569', '#334155', '#1e293b', '#0f172a', '#0369a1'], vars: { '--blue': '#334155', '--blue2': '#475569', '--dash': '#94a3b8', '--panel': '#e2e8f0', '--sbar': '#0f172a', '--sbar-border': '#64748b', '--group-bg': '#eef1f5', '--group-border': '#b5bbc3', '--group-ink': '#0f172a', '--card-bg': '#dce1e8', '--card-border': '#9aa2ad', '--card-ink': '#1e293b', '--ink-muted': '#5c6b7a' } }
 ];
 function currentScheme() {
   const t = (diagram && diagram.theme) || {};
@@ -619,6 +636,7 @@ function applyScheme(scheme) {
   applyThemeVars(scheme.vars);
   persist(); render(); renderProps();
 }
+const SCH_LV_LABELS = ['亮', '次亮', '中', '次深', '深', '最深'];
 function fillSchemeMenu() {
   const cur = currentScheme();
   const list = document.getElementById('schemeList');
@@ -628,13 +646,16 @@ function fillSchemeMenu() {
     esc(s.name) + '</button>').join('');
   const row = document.getElementById('schemeCustomRow');
   row.innerHTML = cur.colors.map((c, i) =>
-    '<input type="color" data-scheme-i="' + i + '" value="' + esc(c) + '" title="第' + (i + 1) + '档">').join('');
+    '<span class="sch-lv-cell"><input type="color" data-scheme-i="' + i + '" value="' + esc(c) + '" title="第' + (i + 1) + '档">' +
+    '<span class="sch-lv">' + (SCH_LV_LABELS[i] || '') + '</span></span>').join('');
 }
 function applyCustomScheme() {
   const colors = [...document.querySelectorAll('#schemeCustomRow input')].map(i => i.value);
   applyScheme({
     id: '__custom', custom: true, colors,
-    vars: { '--blue': colors[1] || '#2379bd', '--blue2': colors[0] || '#2f80c2', '--dash': colors[1] || '#2c78c2', '--panel': (colors[2] || '#143c66') + '40', '--sbar': colors[4] || '#143c66', '--sbar-border': colors[1] || '#2f80c2' }
+    vars: Object.assign({
+      '--blue': colors[1] || '#2379bd', '--blue2': colors[0] || '#2f80c2', '--dash': colors[1] || '#2c78c2', '--panel': (colors[2] || '#143c66') + '40', '--sbar': colors[4] || '#143c66', '--sbar-border': colors[1] || '#2f80c2'
+    }, deriveHierTokens(colors))
   });
 }
 
