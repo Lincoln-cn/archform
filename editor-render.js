@@ -60,7 +60,7 @@ function renderSidebar(d) {
       var t = itemText(it), r = splitRefs(t);
       var inner = esc(r.plain) + r.refs.map(refTagHtml).join('');
       var cls = (r.refs.length || r.plain) ? 'sb-item' + (r.refs.length ? ' has-ref' : '') : 'sb-item';
-      return '<div class="' + cls + '"' + (r.refs.length ? ' title="' + esc(t) + '"' : '') + '>' + inner + '</div>';
+      return '<div class="' + cls + '" title="' + esc(t) + '">' + inner + '</div>';
     }).join('');
     const cls = (b.items && b.items.length) ? 'sbar' : 'sbar no-items';
     return '<div class="' + cls + '" data-id="' + b.id + '">' +
