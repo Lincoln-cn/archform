@@ -735,33 +735,7 @@ function bindEvents() {
   // 缩放
   document.getElementById('zoomRange').addEventListener('input', e => { applyZoom(parseInt(e.target.value, 10)); });
   document.getElementById('btnFit').addEventListener('click', zoomFit);
-  // 右侧通栏宽度拖拽（委托在画布容器，渲染重建后仍有效）
-  document.getElementById('captureArea').addEventListener('mousedown', e => {
-    const div = e.target.closest('.side-divider');
-    if (!div || !diagram) return;
-    e.preventDefault();
-    div.classList.add('active');
-    const layout = div.parentElement;
-    const startX = e.clientX;
-    const startW = diagram.sidebarWidth || parseFloat(getComputedStyle(layout).getPropertyValue('--sidebar-w')) || 460;
-    pushUndo();
-    let _dcPending;
-    const onMove = ev => {
-      const w = Math.max(200, Math.min(900, startW + (ev.clientX - startX)));
-      layout.style.setProperty('--sidebar-w', w + 'px');
-      diagram.sidebarWidth = w;
-      if (!_dcPending) { _dcPending = requestAnimationFrame(function() { _dcPending = 0; drawConnections(); }); }
-    };
-    const onUp = () => {
-      div.classList.remove('active');
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      if (diagram.sidebarWidth) persist();
-      drawConnections();
-    };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  });
+  // 右侧通栏宽度随条目数量自动调整(竖排条目,无需拖拽;旧数据 sidebarWidth 字段保留但不再参与布局)
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && previewing) togglePreview();
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }

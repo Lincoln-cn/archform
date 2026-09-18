@@ -175,35 +175,36 @@
   .arch .flow-col .card .items{flex:0 0 auto;align-content:flex-start;justify-content:flex-start;gap:6px}
   .arch .flow-col .card .item{flex:0 1 auto;min-width:64px;white-space:normal;overflow:visible}
 
-  /* ===== 右侧垂直通栏（体系说明）：体系竖条横向并排，新增往右增加 ===== */
-  .arch .side-layout{display:grid;grid-template-columns:1fr 8px var(--sidebar-w,460px);gap:0;align-items:stretch}
+  /* ===== 右侧垂直通栏（体系说明）：条目竖排,块宽随条目数动态;通栏最少≈3条竖条宽 ===== */
+  .arch .side-layout{display:grid;grid-template-columns:1fr 8px minmax(84px,max-content);gap:0;align-items:stretch}
   .arch .side-main{min-width:0}
   .arch .side-divider{
-    cursor:col-resize;background:transparent;position:relative;
+    background:transparent;position:relative;
   }
   .arch .side-divider::after{
     content:'';position:absolute;top:0;bottom:0;left:3px;width:2px;background:#b9d8f0;border-radius:1px;
   }
-  .arch .side-divider:hover::after,.arch .side-divider.active::after{background:#2379bd;width:3px;left:2px}
   #captureArea:not(.editing) .side-divider{visibility:hidden;pointer-events:none}
-  .arch .sidebar{display:flex;flex-direction:row;gap:6px;align-items:stretch}
+  .arch .sidebar{display:flex;flex-direction:row;gap:6px;align-items:stretch;min-width:84px}
   .arch .sbar{
     background:var(--sbar,#183c63);border:1px solid var(--sbar-border,#2c78c2);border-radius:2px;overflow:hidden;
-    display:flex;flex-direction:column;flex:1 1 0;min-width:0;
+    display:flex;flex-direction:row;flex:0 0 auto;min-width:84px;
   }
   .arch .sbar .sb-title{
     writing-mode:vertical-rl;text-orientation:mixed;background:#2379bd;color:#e8f2ff;
     font-weight:700;font-size:15px;letter-spacing:3px;
-    display:flex;align-items:center;justify-content:center;padding:10px 0;min-height:70px;
+    display:flex;align-items:center;justify-content:center;padding:10px 8px;min-height:70px;flex:none;
   }
-  /* 体系无说明条目时：标题充满整个竖条并放大 */
+  /* 体系无说明条目时：标题竖条充满整块 */
   .arch .sbar.no-items .sb-title{flex:1;min-height:0;font-size:19px}
   .arch .sbar .sb-items{
-    display:flex;flex-direction:column;justify-content:center;gap:10px;padding:12px 10px;flex:1;
+    display:flex;flex-direction:row;justify-content:center;align-items:stretch;gap:6px;padding:8px 6px;flex:1;
   }
   .arch .sbar .sb-item{
     background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);
-    border-radius:2px;color:#fff;font-size:14px;text-align:center;padding:6px 8px;
+    border-radius:2px;color:#fff;font-size:14px;text-align:center;
+    writing-mode:vertical-rl;text-orientation:mixed;
+    flex:none;width:28px;padding:8px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
 
   /* ===== 底部图例通栏 ===== */

@@ -24,8 +24,7 @@ function renderBody() {
       body = '<div class="lay-stack">' + body + '</div>';
     }
     if (d.sidebar && d.sidebar.length) {
-      const w = d.sidebarWidth || 460;
-      body = '<div class="side-layout" style="--sidebar-w:' + w + 'px">' +
+      body = '<div class="side-layout">' +
              '<div class="side-main">' + body + '</div>' +
              '<div class="side-divider"></div>' +
              renderSidebar(d) + '</div>';
@@ -34,8 +33,7 @@ function renderBody() {
   else if (d.layout === 'flow') {
     body = renderFlow(d);
     if (d.sidebar && d.sidebar.length) {
-      const w = d.sidebarWidth || 460;
-      body = '<div class="side-layout" style="--sidebar-w:' + w + 'px">' +
+      body = '<div class="side-layout">' +
              '<div class="side-main">' + body + '</div>' +
              '<div class="side-divider"></div>' +
              renderSidebar(d) + '</div>';
