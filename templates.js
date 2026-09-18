@@ -468,7 +468,7 @@ window.ARCH_TEMPLATES = {
   "subtitle": "数据分层与主题域（数据源 → 贴源 → 明细 → 汇总 → 应用 → 服务）",
   "layout": "layered",
   "sidebar": [
-   { "id": "da-s1", "title": "数据治理体系", "color": "#0e7a8a", "items": ["数据标准", "数据质量", "数据安全", "主数据管理", "元数据管理"] }
+   { "id": "da-s1", "title": "数据治理体系", "color": "#081c33", "items": ["数据标准", "数据质量", "数据安全", "主数据管理", "元数据管理"] }
   ],
   "legend": [
    { "id": "da-l1", "color": "#2f80c2", "title": "数据源层" },
@@ -476,7 +476,7 @@ window.ARCH_TEMPLATES = {
    { "id": "da-l3", "color": "#1a5c94", "title": "DWD 明细层" },
    { "id": "da-l4", "color": "#143c66", "title": "DWS 汇总层" },
    { "id": "da-l5", "color": "#0e2a47", "title": "ADS 应用层" },
-   { "id": "da-l6", "color": "#0e7a8a", "title": "数据服务层" }
+   { "id": "da-l6", "color": "#081c33", "title": "数据服务层" }
   ],
   "layers": [
    {
@@ -650,7 +650,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "da-7",
     "name": "数据服务层",
-    "bandColor": "#0e7a8a",
+    "bandColor": "#081c33",
     "cols": 3,
     "stat": "统一对外数据出口",
     "groups": [
@@ -1068,7 +1068,7 @@ window.ARCH_TEMPLATES = {
    { "id": "cl-l3", "color": "#1a5c94", "title": "SaaS 应用层" },
    { "id": "cl-l4", "color": "#143c66", "title": "PaaS 平台层" },
    { "id": "cl-l5", "color": "#0e2a47", "title": "IaaS 资源层" },
-   { "id": "cl-l6", "color": "#0e7a8a", "title": "基础设施层" }
+   { "id": "cl-l6", "color": "#081c33", "title": "基础设施层" }
   ],
   "layers": [
    {
@@ -1200,7 +1200,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "cl-7",
     "name": "基础设施层",
-    "bandColor": "#0e7a8a",
+    "bandColor": "#081c33",
     "cols": 2,
     "stat": "物理基础设施",
     "groups": [
@@ -1549,7 +1549,7 @@ window.ARCH_TEMPLATES = {
    { "id": "fd-l3", "color": "#1a5c94", "title": "ODS 贴源" },
    { "id": "fd-l4", "color": "#143c66", "title": "DWD 明细" },
    { "id": "fd-l5", "color": "#0e2a47", "title": "DWS 汇总" },
-   { "id": "fd-l6", "color": "#0e7a8a", "title": "ADS / 数据服务" }
+   { "id": "fd-l6", "color": "#081c33", "title": "ADS / 数据服务" }
   ],
   "layers": [
    {
@@ -1641,7 +1641,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "fd-7",
     "name": "ADS / 数据服务",
-    "bandColor": "#0e7a8a",
+    "bandColor": "#081c33",
     "cols": 1,
     "stat": "统一对外数据出口",
     "groups": [
