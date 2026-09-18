@@ -188,15 +188,16 @@
   .arch .sidebar{display:flex;flex-direction:row;gap:6px;align-items:stretch;min-width:84px}
   .arch .sbar{
     background:var(--sbar,#183c63);border:1px solid var(--sbar-border,#2c78c2);border-radius:2px;overflow:hidden;
-    display:flex;flex-direction:row;flex:0 0 auto;min-width:84px;
+    display:flex;flex-direction:column;flex:0 0 auto;min-width:84px;
   }
+  /* 体系标题:水平横排置顶(与竖排条目区分层级) */
   .arch .sbar .sb-title{
-    writing-mode:vertical-rl;text-orientation:mixed;background:#2379bd;color:#e8f2ff;
-    font-weight:700;font-size:15px;letter-spacing:3px;
-    display:flex;align-items:center;justify-content:center;padding:10px 8px;min-height:70px;flex:none;
+    writing-mode:horizontal-tb;background:#2379bd;color:#e8f2ff;
+    font-weight:700;font-size:15px;letter-spacing:1px;
+    display:flex;align-items:center;justify-content:center;padding:8px 10px;flex:none;text-align:center;
   }
-  /* 体系无说明条目时：标题竖条充满整块 */
-  .arch .sbar.no-items .sb-title{flex:1;min-height:0;font-size:19px}
+  /* 体系无说明条目时：横排标题充满整块并居中 */
+  .arch .sbar.no-items .sb-title{flex:1;font-size:16px}
   .arch .sbar .sb-items{
     display:flex;flex-direction:row;justify-content:center;align-items:stretch;gap:6px;padding:8px 6px;flex:1;
   }
