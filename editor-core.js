@@ -168,7 +168,7 @@ const BAND_COLORS = [
   { name: '中蓝', color: '#1a5c94' },
   { name: '深蓝', color: '#143c66' },
   { name: '藏蓝', color: '#0e2a47' },
-  { name: '青蓝', color: '#0e7a8a' },
+  { name: '墨蓝', color: '#081c33' },
 ];
 
 /* ================= 默认数据 ================= */

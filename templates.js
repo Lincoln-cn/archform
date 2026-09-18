@@ -1367,17 +1367,17 @@ window.ARCH_TEMPLATES = {
   "connections": [],
   "showConnections": false,
   "legend": [
-   { "id": "sc-l1", "color": "#4a7a4a", "title": "安全物理环境" },
-   { "id": "sc-l2", "color": "#2f80c2", "title": "安全通信网络" },
-   { "id": "sc-l3", "color": "#e6a817", "title": "安全区域边界" },
-   { "id": "sc-l4", "color": "#1a5c94", "title": "安全计算环境" },
-   { "id": "sc-l5", "color": "#c0392b", "title": "安全管理中心" }
+   { "id": "sc-l1", "color": "#2f80c2", "title": "安全物理环境" },
+   { "id": "sc-l2", "color": "#2379bd", "title": "安全通信网络" },
+   { "id": "sc-l3", "color": "#1a5c94", "title": "安全区域边界" },
+   { "id": "sc-l4", "color": "#143c66", "title": "安全计算环境" },
+   { "id": "sc-l5", "color": "#0e2a47", "title": "安全管理中心" }
   ],
   "layers": [
    {
     "id": "sc-2",
     "name": "安全物理环境",
-    "bandColor": "#4a7a4a",
+    "bandColor": "#2f80c2",
     "cols": 3,
     "stat": "3 个控制点",
     "groups": [
@@ -1407,7 +1407,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "sc-3",
     "name": "安全通信网络",
-    "bandColor": "#2f80c2",
+    "bandColor": "#2379bd",
     "cols": 3,
     "stat": "3 个控制点",
     "groups": [
@@ -1437,7 +1437,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "sc-4",
     "name": "安全区域边界",
-    "bandColor": "#e6a817",
+    "bandColor": "#1a5c94",
     "cols": 3,
     "stat": "4 个控制点",
     "groups": [
@@ -1462,7 +1462,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "sc-5",
     "name": "安全计算环境",
-    "bandColor": "#1a5c94",
+    "bandColor": "#143c66",
     "cols": 3,
     "stat": "5 个控制点",
     "groups": [
@@ -1495,7 +1495,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "sc-6",
     "name": "安全管理中心",
-    "bandColor": "#c0392b",
+    "bandColor": "#0e2a47",
     "cols": 3,
     "stat": "3 个管理域",
     "groups": [
