@@ -58,7 +58,11 @@ function renderSidebar(d) {
   const bars = (d.sidebar || []).map(b => {
     const items = (b.items || []).map(it => {
       var t = itemText(it), r = splitRefs(t);
-      var inner = esc(r.plain) + r.refs.map(refTagHtml).join('');
+      /* 拆单字 span:flex column + space-between 沿条目高度均分字距;角标作为整体项 */
+      var chars = Array.from(r.plain || '').map(function(ch) {
+        return ch === ' ' ? '<span class="sb-gap"></span>' : '<span>' + esc(ch) + '</span>';
+      }).join('');
+      var inner = chars + r.refs.map(refTagHtml).join('');
       var cls = (r.refs.length || r.plain) ? 'sb-item' + (r.refs.length ? ' has-ref' : '') : 'sb-item';
       return '<div class="' + cls + '" title="' + esc(t) + '">' + inner + '</div>';
     }).join('');
