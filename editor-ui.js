@@ -617,13 +617,15 @@ function applyThemeVars(vars) {
 function applyScheme(scheme) {
   if (!diagram) return;
   pushUndo();
-  // 颜色替换：先按"当前方案色阶"反向定位索引（保证连续套用不同方案不卡色），
-  // 再回退到预置色板；两者都不命中（自定义颜色）则保留
+  // 颜色替换:先按"当前方案色阶"反向定位索引(保证连续套用不同方案不卡色),
+  // 再回退到预置色板;都不命中时用**最近色**映射到当前方案最接近的档位
+  // (模板语义色/历史自定义色在套用方案时也统一跟随,符合"样式配色统一"定位)
   const cur = currentScheme();
   const replace = c => {
     const s = String(c || '').toLowerCase();
     let i = (cur.colors || []).findIndex(x => String(x).toLowerCase() === s);
     if (i < 0) i = BAND_COLORS.findIndex(b => b.color.toLowerCase() === s);
+    if (i < 0) i = nearestRampIndex(c, cur.colors);
     return i >= 0 ? scheme.colors[i] : c;
   };
   (diagram.layers || []).forEach(l => {
@@ -635,6 +637,19 @@ function applyScheme(scheme) {
   diagram.theme = { id: scheme.id, custom: scheme.custom ? scheme.colors : null, vars: scheme.vars };
   applyThemeVars(scheme.vars);
   persist(); render(); renderProps();
+}
+/* 在色阶中找与 hex RGB 距离最近的档位索引;无法解析时返回 -1 */
+function nearestRampIndex(hex, ramp) {
+  const a = hexToRgb(hex);
+  if (!a || !Array.isArray(ramp) || !ramp.length) return -1;
+  let best = -1, bd = Infinity;
+  ramp.forEach((cc, j) => {
+    const q = hexToRgb(cc);
+    if (!q) return;
+    const d = (a.r - q.r) * (a.r - q.r) + (a.g - q.g) * (a.g - q.g) + (a.b - q.b) * (a.b - q.b);
+    if (d < bd) { bd = d; best = j; }
+  });
+  return best;
 }
 const SCH_LV_LABELS = ['亮', '次亮', '中', '次深', '深', '最深'];
 function fillSchemeMenu() {

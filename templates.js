@@ -1063,18 +1063,18 @@ window.ARCH_TEMPLATES = {
   "connections": [],
   "showConnections": false,
   "legend": [
-   { "id": "cl-l1", "color": "#4db8ff", "title": "接入访问层" },
-   { "id": "cl-l2", "color": "#2f80c2", "title": "云管理平台" },
-   { "id": "cl-l3", "color": "#2379bd", "title": "SaaS 应用层" },
-   { "id": "cl-l4", "color": "#1a5c94", "title": "PaaS 平台层" },
-   { "id": "cl-l5", "color": "#143c66", "title": "IaaS 资源层" },
-   { "id": "cl-l6", "color": "#0e2a47", "title": "基础设施层" }
+   { "id": "cl-l1", "color": "#2f80c2", "title": "接入访问层" },
+   { "id": "cl-l2", "color": "#2379bd", "title": "云管理平台" },
+   { "id": "cl-l3", "color": "#1a5c94", "title": "SaaS 应用层" },
+   { "id": "cl-l4", "color": "#143c66", "title": "PaaS 平台层" },
+   { "id": "cl-l5", "color": "#0e2a47", "title": "IaaS 资源层" },
+   { "id": "cl-l6", "color": "#0e7a8a", "title": "基础设施层" }
   ],
   "layers": [
    {
     "id": "cl-2",
     "name": "接入访问层",
-    "bandColor": "#4db8ff",
+    "bandColor": "#2f80c2",
     "cols": 2,
     "stat": "3 类接入方式",
     "groups": [
@@ -1099,7 +1099,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "cl-3",
     "name": "云管理平台",
-    "bandColor": "#2f80c2",
+    "bandColor": "#2379bd",
     "cols": 2,
     "stat": "4 大管理域",
     "groups": [
@@ -1124,7 +1124,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "cl-4",
     "name": "SaaS 应用层",
-    "bandColor": "#2379bd",
+    "bandColor": "#1a5c94",
     "cols": 2,
     "stat": "5 类 SaaS 应用",
     "groups": [
@@ -1150,7 +1150,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "cl-5",
     "name": "PaaS 平台层",
-    "bandColor": "#1a5c94",
+    "bandColor": "#143c66",
     "cols": 2,
     "stat": "4 大平台能力",
     "groups": [
@@ -1175,7 +1175,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "cl-6",
     "name": "IaaS 资源层",
-    "bandColor": "#143c66",
+    "bandColor": "#0e2a47",
     "cols": 2,
     "stat": "4 大资源类型",
     "groups": [
@@ -1200,7 +1200,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "cl-7",
     "name": "基础设施层",
-    "bandColor": "#0e2a47",
+    "bandColor": "#0e7a8a",
     "cols": 2,
     "stat": "物理基础设施",
     "groups": [
@@ -1674,17 +1674,17 @@ window.ARCH_TEMPLATES = {
   ],
   "showConnections": true,
   "legend": [
-   { "id": "fa-l1", "color": "#4db8ff", "title": "客户端" },
-   { "id": "fa-l2", "color": "#2f80c2", "title": "接入层" },
-   { "id": "fa-l3", "color": "#2379bd", "title": "服务层" },
-   { "id": "fa-l4", "color": "#1a5c94", "title": "数据层" },
+   { "id": "fa-l1", "color": "#2f80c2", "title": "客户端" },
+   { "id": "fa-l2", "color": "#2379bd", "title": "接入层" },
+   { "id": "fa-l3", "color": "#1a5c94", "title": "服务层" },
+   { "id": "fa-l4", "color": "#143c66", "title": "数据层" },
    { "id": "fa-l5", "color": "#0e2a47", "title": "监控 / 审计" }
   ],
   "layers": [
    {
     "id": "fa-2",
     "name": "客户端",
-    "bandColor": "#4db8ff",
+    "bandColor": "#2f80c2",
     "cols": 1,
     "stat": "3 类终端",
     "groups": [
@@ -1702,7 +1702,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "fa-3",
     "name": "接入层",
-    "bandColor": "#2f80c2",
+    "bandColor": "#2379bd",
     "cols": 1,
     "stat": "流量接入与安全",
     "groups": [
@@ -1720,7 +1720,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "fa-4",
     "name": "服务层",
-    "bandColor": "#2379bd",
+    "bandColor": "#1a5c94",
     "cols": 1,
     "stat": "4 个核心服务",
     "groups": [
@@ -1739,7 +1739,7 @@ window.ARCH_TEMPLATES = {
    {
     "id": "fa-5",
     "name": "数据层",
-    "bandColor": "#1a5c94",
+    "bandColor": "#143c66",
     "cols": 1,
     "stat": "持久化与缓存",
     "groups": [
