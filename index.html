@@ -78,16 +78,18 @@
   .arch .layer-head{
     display:flex;
     align-items:baseline;
-    gap:10px;
+    flex-wrap:wrap;              /* 层名+统计过长时统计换到第二行，不挤出层底 */
+    gap:2px 10px;
     padding-bottom:10px;
     border-bottom:1px dashed var(--dash);
   }
-  .arch .layer-head .zh{font-size:16px;font-weight:700;color:var(--group-ink);letter-spacing:1px}
+  .arch .layer-head .zh{font-size:16px;font-weight:700;color:var(--group-ink);letter-spacing:1px;min-width:0;overflow-wrap:anywhere}
   .arch .layer-head .stat{font-size:12px;color:var(--ink-muted);margin-left:auto}
   .arch .groups{display:grid;gap:12px;align-items:stretch}
-  .arch .groups.col3{grid-template-columns:repeat(3,1fr)}
-  .arch .groups.col2{grid-template-columns:repeat(2,1fr)}
-  .arch .groups.col1{grid-template-columns:1fr}
+  /* minmax(0,1fr)：分组列可被压缩，超长条目不会把栅格列撑宽(否则整层横向溢出) */
+  .arch .groups.col3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .arch .groups.col2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .arch .groups.col1{grid-template-columns:minmax(0,1fr)}
   .arch .subdomain{
     background:var(--group-bg);
     border:1px solid var(--group-border);
@@ -110,6 +112,10 @@
     flex-wrap:wrap;
     gap:10px;
     flex:1;
+    /* 卡片行撑满分组高度：同一层里分组等高(grid stretch)，行数少的分组(如 1 行)要把行高
+       拉齐到行数多的分组，否则「左边两行、右边一行」会右边空出一截、视觉上左高右低。
+       条目仍按内容贴顶(见 .card .items)，只是卡片盒子等高。 */
+    align-content:stretch;
   }
   .arch .card{
     background:var(--card-bg);
@@ -121,6 +127,7 @@
     display:flex;
     flex-direction:column;
     flex:1 1 calc(50% - 5px);
+    min-width:0;                 /* 卡片可被压缩：长条目在卡内折行，而不是把卡片撑出分组 */
   }
   .arch .card.span2{flex-basis:100%}
   .arch .card .t{
@@ -129,13 +136,16 @@
     color:var(--card-ink);
     margin-bottom:8px;
     text-align:center;
+    min-width:0;
+    overflow-wrap:anywhere;      /* 超长模块名(英文/版本号)折行，不溢出卡片 */
   }
   .arch .card .items{
     display:flex;
     flex-wrap:wrap;
     gap:6px;
     justify-content:center;
-    align-content:stretch;
+    align-items:flex-start;      /* 条目按内容高度：不被拉伸成竖长条(原 stretch 让条目等高填满卡片) */
+    align-content:flex-start;
     flex:1;
   }
   .arch .card .item{
@@ -145,24 +155,37 @@
     padding:5px 4px;
     font-size:13px;
     color:var(--card-ink);
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    flex:1 1 calc(50% - 3px);
+    /* 长文本策略：盒子最宽 = 卡片内容宽(100%)，文本在盒内折行 */
+    white-space:normal;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+    /* 宽度统一：同一行的条目等分该行宽度(flex-basis:0 + grow)，
+       但不得窄于自身文字宽度(min-width:fit-content ⇒ 放不下就整条折到下一行)。
+       超长条目 fit-content 会被夹到行宽，于是独占一行并在盒内折行。 */
+    flex:1 1 0;
+    min-width:fit-content;
+    max-width:100%;
     text-align:center;
     display:flex;
     align-items:center;
     justify-content:center;
   }
+  /* 说明（原为 nowrap + ellipsis，条目被 flex-basis:50% 压到 45px 后长名词必然溢出/被截断）：
+     ① 同一行的条目等宽(flex:1 1 0)：不再出现「同卡片里几个窄竖条 + 几个宽盒子」的参差；
+     ② 盒子不得窄于文字(min-width:fit-content)：放不下就折到下一行，绝不压成竖条；
+     ③ 文本在盒内折行(overflow-wrap:anywhere)，超长也不越出卡片；
+     ④ 条目与卡片都按内容高度贴顶(align-items/align-content:flex-start)，不被拉伸成竖长条；
+     ⑤ 导出 PNG/SVG 已同步改为「按浏览器实际断行逐行绘制」，网页显示与截图一致。 */
 
 
   /* ===== flow 范式（横向流向：层→列，顶部横排色带，分组纵叠） ===== */
   .arch .flow-lanes{display:flex;align-items:stretch}   /* 列间距由 renderFlow 按边界 margin 控制(带标签的连接间隙加宽) */
   .arch .flow-col{flex:1 1 0;min-width:0;display:grid;grid-template-columns:1fr;grid-template-rows:auto 1fr;
     border:2px dashed var(--dash);background:var(--panel);overflow:hidden;margin-bottom:0}
-  .arch .layer .flow-band{writing-mode:horizontal-tb;display:flex;align-items:center;gap:10px;
+  .arch .layer .flow-band{writing-mode:horizontal-tb;display:flex;align-items:center;flex-wrap:wrap;gap:2px 10px;
     padding:9px 14px;font-size:15px;font-weight:700;letter-spacing:1px;color:#fff;
     text-shadow:0 1px 2px rgba(0,0,0,.28)}
+  .arch .layer .flow-band .band-title{min-width:0;overflow-wrap:anywhere}   /* 长层名在色带内折行 */
   .arch .layer .flow-band .stat{font-size:12px;font-weight:400;color:rgba(255,255,255,.85);margin-left:auto}
   .arch .flow-col .body{padding:10px 12px 12px;display:flex;flex-direction:column;align-items:stretch;background:var(--layer-tint,#fff)}
   .arch .flow-col .subdomain{padding:0;border:none;background:transparent}
@@ -173,10 +196,12 @@
   .arch .flow-col .card{flex:0 1 auto;width:100%}
   .arch .flow-col .card .t{text-align:left;margin-bottom:6px}
   .arch .flow-col .card .items{flex:0 0 auto;align-content:flex-start;justify-content:flex-start;gap:6px}
-  .arch .flow-col .card .item{flex:0 1 auto;min-width:64px;white-space:normal;overflow:visible}
+  .arch .flow-col .card .item{flex:0 1 auto;overflow-wrap:anywhere}   /* 列窄，长条目折行而非溢出列边界 */
 
   /* ===== 右侧垂直通栏（体系说明）：条目竖排,块宽随条目数动态;通栏最少≈3条竖条宽 ===== */
-  .arch .side-layout{display:grid;grid-template-columns:1fr 8px minmax(84px,max-content);gap:0;align-items:stretch}
+  /* 主区 : 通栏 = 84.6% : 15.4%（2 体系×4 条目时 1321 : 241，画布内容宽 1562）。
+     主区 minmax(0,1fr) 可压缩；通栏按内容 max-content，下限为 3 条竖条宽(84px)。 */
+  .arch .side-layout{display:grid;grid-template-columns:minmax(0,1fr) 8px minmax(84px,max-content);gap:0;align-items:stretch}
   .arch .side-main{min-width:0}
   .arch .side-divider{
     background:transparent;position:relative;
@@ -185,28 +210,28 @@
     content:'';position:absolute;top:0;bottom:0;left:3px;width:2px;background:#b9d8f0;border-radius:1px;
   }
   #captureArea:not(.editing) .side-divider{visibility:hidden;pointer-events:none}
-  .arch .sidebar{display:flex;flex-direction:row;gap:6px;align-items:stretch;min-width:84px}
+  .arch .sidebar{display:flex;flex-direction:row;gap:5px;align-items:stretch;min-width:84px}
   .arch .sbar{
     background:var(--sbar,#183c63);border:1px solid var(--sbar-border,#2c78c2);border-radius:2px;overflow:hidden;
     display:flex;flex-direction:column;flex:0 0 auto;min-width:84px;
   }
-  /* 体系标题:水平横排置顶(与竖排条目区分层级) */
+  /* 体系标题:水平横排置顶(与竖排条目区分层级);字号收紧到 14px,避免标题成为通栏宽度瓶颈 */
   .arch .sbar .sb-title{
     writing-mode:horizontal-tb;background:#2379bd;color:#e8f2ff;
-    font-weight:700;font-size:15px;letter-spacing:1px;
-    display:flex;align-items:center;justify-content:center;padding:8px 10px;flex:none;text-align:center;
+    font-weight:700;font-size:14px;letter-spacing:.5px;
+    display:flex;align-items:center;justify-content:center;padding:7px 8px;flex:none;text-align:center;
   }
   /* 体系无说明条目时：横排标题充满整块并居中 */
   .arch .sbar.no-items .sb-title{flex:1;font-size:16px}
   .arch .sbar .sb-items{
-    display:flex;flex-direction:row;justify-content:center;align-items:stretch;gap:10px;padding:8px 6px;flex:1;
+    display:flex;flex-direction:row;justify-content:center;align-items:stretch;gap:6px;padding:8px 4px;flex:1;
   }
-  /* 条目与父容器同高;文字拆单字居中紧凑排列(字距 6px,不全高均分) */
+  /* 条目与父容器同高;文字拆单字居中紧凑排列(字距 5px,不全高均分);22px 条宽 + 6px 间距使 4 条目体系≈114px,2 体系合占通栏≈15% */
   .arch .sbar .sb-item{
     background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);
     border-radius:2px;color:#fff;font-size:14px;text-align:center;
-    display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px;
-    flex:none;width:28px;padding:8px 4px;overflow:hidden;line-height:1.2;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;
+    flex:none;width:22px;padding:8px 2px;overflow:hidden;line-height:1.2;
   }
   .arch .sbar .sb-item > span{line-height:1.2}
 
@@ -232,6 +257,15 @@
   .arch .canvas{position:relative}
   .arch .lay-stack{padding-left:30px}
   .arch .conn-overlay{position:absolute;left:-1px;top:-1px;width:calc(100% + 2px);height:calc(100% + 2px);pointer-events:none;overflow:visible}
+  /* 悬停认出单条连线:整组(线 + 说明)高亮;只让线本身接收指针,不挡卡片点击 */
+  .arch .conn-overlay .conn-g .conn-path{pointer-events:stroke;cursor:pointer;transition:stroke .12s,stroke-width .12s}
+  .arch .conn-overlay .conn-g:hover .conn-path{stroke:#0f2f4f;stroke-width:2.6}
+  .arch .conn-overlay .conn-g .conn-label{pointer-events:none;transition:fill .12s}
+  .arch .conn-overlay .conn-g .conn-label-bg{pointer-events:none}
+  .arch .conn-overlay .conn-g:hover .conn-label{fill:#0f2f4f;font-weight:700}
+  /* 连线点选态:画布上的层可点,鼠标变准星 */
+  #captureArea.editing .canvas.conn-picking section.layer{cursor:crosshair}
+  #captureArea.editing .canvas.conn-picking section.layer:hover{outline:2px solid #f5a623;outline-offset:-2px}
 
   /* ================= 编辑器 UI（与架构图渲染样式隔离） ================= */
   body{margin:0;font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;background:#eef1f5;color:#26384a}
@@ -477,41 +511,71 @@
   .tg-btn:hover{background:#eef5fc}
   .tg-btn.primary{background:#2379bd;color:#fff;border-color:#2379bd}
   .tg-btn.primary:hover{background:#1a5c94}
-  /* 层间连线编辑弹窗 */
-  .ce-dialog{width:680px;max-width:94vw}
-  .ce-headbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
-  .ce-title{font-size:17px;font-weight:700;color:#1f2d3d}
-  .ce-vis{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#5a7a9a;cursor:pointer;user-select:none}
-  .ce-vis input{accent-color:#2379bd;width:14px;height:14px;margin:0}
-  .ce-hint{font-size:12px;color:#5a7a9a;line-height:1.6;margin-bottom:8px}
-  .ce-list{max-height:46vh;overflow-y:auto;border:1px solid #e3e8ef;border-radius:4px;background:#fafbfc;padding:6px 8px;display:flex;flex-direction:column;gap:4px}
-  .ce-head,.ce-row{display:grid;grid-template-columns:minmax(0,1.15fr) 20px minmax(0,1.15fr) 76px minmax(0,1fr) 24px;gap:5px;align-items:center}
-  .ce-head{padding:2px 2px 4px;border-bottom:1px solid #e3e8ef;position:sticky;top:-6px;background:#fafbfc}
-  .ce-head span{font-size:11px;color:#8a9fb5}
-  .ce-row{padding:3px 2px;border-radius:3px;transition:background .1s}
-  .ce-row:hover{background:#f0f4f9}
-  .ce-row.bad{background:#fef2f2;box-shadow:inset 2px 0 0 #e74c3c}
-  .ce-row.bad select,.ce-row.bad select:focus{outline:1px solid #e74c3c}
-  .ce-row select,.ce-row input{
-    width:100%;min-width:0;font-size:12px;padding:4px 6px;border:1px solid #c3cdd9;border-radius:3px;
-    background:#fff;box-sizing:border-box;
+  /* ===== 层间连线编辑面板(右侧浮层:不遮画布,边看边配) ===== */
+  .ce-panel{
+    position:fixed;right:10px;top:56px;z-index:520;
+    width:392px;max-width:calc(100vw - 20px);max-height:calc(100vh - 66px);
+    display:flex;flex-direction:column;gap:8px;
+    background:#fff;border:1px solid #d8dee6;border-radius:8px;
+    box-shadow:0 14px 44px rgba(15,42,71,.22);padding:14px 14px 12px;
   }
-  .ce-row input:focus,.ce-row select:focus{outline:none;border-color:#2379bd}
-  .ce-row .ce-arrow{color:#8a9fb5;font-size:13px;text-align:center;user-select:none}
-  .ce-row .ce-del{
-    border:0;background:none;color:#b0bec9;cursor:pointer;font-size:14px;padding:0;line-height:1;
+  .ce-head{display:flex;align-items:center;gap:8px}
+  .ce-title{font-size:15px;font-weight:700;color:#1f2d3d;flex:1;min-width:0}
+  .ce-x{border:0;background:none;color:#8a9fb5;font-size:15px;cursor:pointer;padding:2px 4px;border-radius:4px;line-height:1;flex:none}
+  .ce-x:hover{background:#f0f4f9;color:#1f2d3d}
+  .ce-vis{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#5a7a9a;cursor:pointer;user-select:none;flex:none}
+  .ce-vis input{accent-color:#2379bd;width:14px;height:14px;margin:0}
+  .ce-hint{font-size:12px;color:#5a7a9a;line-height:1.65;background:#f5f9fd;border:1px solid #e3eef8;border-radius:4px;padding:7px 9px;flex:none}
+  .ce-list{flex:1 1 auto;min-height:56px;max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:1px}
+  .ce-row{
+    border:1px solid #e3e8ef;border-radius:5px;background:#fafbfc;padding:6px;
+    display:flex;flex-direction:column;gap:5px;transition:border-color .1s,background .1s;flex:none;
+  }
+  .ce-row:hover{border-color:#c9dcee;background:#f6faff}
+  .ce-row.bad{border-color:#e74c3c;background:#fef6f6}
+  .ce-row.warn{border-color:#e8b048;background:#fffaf0}
+  .ce-line1,.ce-line2{display:flex;align-items:center;gap:5px}
+  .ce-pick{
+    flex:1;min-width:0;display:inline-flex;align-items:center;gap:5px;
+    border:1px solid #c3cdd9;background:#fff;border-radius:4px;padding:5px 7px;
+    font-size:12px;color:#26384a;cursor:pointer;font-family:inherit;text-align:left;
+  }
+  .ce-pick:hover{border-color:#2379bd;background:#f5faff}
+  .ce-pick.picking{border-color:#f5a623;background:#fffaef;box-shadow:0 0 0 2px rgba(245,166,35,.18)}
+  .ce-pick .ce-dot{width:9px;height:9px;border-radius:2px;flex:none;border:1px solid rgba(0,0,0,.15)}
+  .ce-pick .ce-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .ce-pick .ce-ph{color:#8a9fb5}
+  .ce-arrow{color:#8a9fb5;font-size:13px;flex:none;user-select:none}
+  .ce-del{
+    border:0;background:none;color:#b0bec9;cursor:pointer;font-size:13px;line-height:1;flex:none;
     width:24px;height:24px;border-radius:3px;display:flex;align-items:center;justify-content:center;
   }
-  .ce-row .ce-del:hover{color:#e74c3c;background:#fdecea}
-  .ce-empty{color:#8a9fb5;font-size:12px;text-align:center;padding:16px 0}
-  .ce-add{
-    width:100%;margin-top:8px;border:1px dashed #b9c9d8;background:#f5f9fd;border-radius:4px;
-    padding:7px;font-size:13px;color:#1a5c94;cursor:pointer;font-family:inherit;
+  .ce-del:hover{color:#e74c3c;background:#fdecea}
+  .ce-line2 select,.ce-line2 input{
+    font-size:12px;padding:4px 6px;border:1px solid #c3cdd9;border-radius:3px;
+    background:#fff;box-sizing:border-box;font-family:inherit;min-width:0;
   }
-  .ce-add:hover{background:#e8f2fb;border-color:#2379bd}
-  .ce-actions{display:flex;align-items:center;gap:8px;margin-top:12px}
-  .ce-actions .ce-tip{flex:1;font-size:12px;color:#c0392b}
-  .ce-actions button:disabled{opacity:.5;cursor:not-allowed}
+  .ce-line2 select{width:84px;flex:none;cursor:pointer}
+  .ce-line2 input{flex:1}
+  .ce-line2 select:focus,.ce-line2 input:focus{outline:none;border-color:#2379bd}
+  .ce-warn{font-size:11px;color:#a9761a;background:#fff4dd;border-radius:3px;padding:3px 6px}
+  .ce-empty{color:#8a9fb5;font-size:12px;text-align:center;padding:18px 6px;line-height:1.7}
+  .ce-tools{display:flex;gap:6px;flex:none}
+  .ce-btn{
+    border:1px solid #c3cdd9;background:#fff;border-radius:4px;padding:6px 10px;font-size:12px;
+    color:#26384a;cursor:pointer;font-family:inherit;flex:none;
+  }
+  .ce-btn:hover{background:#eef5fc;border-color:#2379bd;color:#1a5c94}
+  .ce-btn.primary{background:#2379bd;border-color:#2379bd;color:#fff}
+  .ce-btn.primary:hover{background:#1a5c94}
+  .ce-btn:disabled{opacity:.45;cursor:not-allowed}
+  .ce-foot{display:flex;align-items:center;gap:6px;flex:none}
+  .ce-tip{flex:1;font-size:11.5px;color:#a9761a;line-height:1.5;min-width:0}
+  .ce-open{
+    width:100%;border:1px dashed #b9c9d8;background:#f5f9fd;border-radius:4px;padding:7px;
+    font-size:13px;color:#1a5c94;cursor:pointer;font-family:inherit;
+  }
+  .ce-open:hover{background:#e8f2fb;border-color:#2379bd}
   /* 树右键菜单 */
   .tree-ctx-menu{position:fixed;z-index:600;background:#fff;border:1px solid #d8dee6;border-radius:5px;box-shadow:0 6px 20px rgba(31,45,61,.18);padding:4px;min-width:130px}
   .tree-ctx-menu button{display:block;width:100%;text-align:left;border:0;background:none;border-radius:3px;padding:6px 12px;font-size:13px;color:#26384a;cursor:pointer;font-family:inherit}

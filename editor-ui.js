@@ -19,10 +19,8 @@ function renderProps() {
          (isAuto ? ' checked' : '') + '> 自动计算统计</label></div>';
     if (!isAuto) h += field('stat', '层统计文字', node.stat);
     h += selField('cols', '分组列数', String(node.cols || 3), [['3','3列'],['2','2列'],['1','1列']]);
-    /* 层间连线改为独立弹窗(视图菜单「编辑连线…」)管理,此处仅提示入口 */
-    if (diagram.layout === 'layered') {
-      h += '<div class="prop-field"><div class="hint" style="margin-top:2px">层间连线：到 <b>视图 ▾ → 编辑连线…</b> 添加「起点层 → 终点层」箭头。</div></div>';
-    }
+    /* 层间连线:入口改为「以本层为起点」直接打开编辑面板(面板里也能改任意层对) */
+    h += '<div class="prop-field"><button type="button" class="ce-open" data-open-conn="' + node.id + '">编辑层间连线…</button></div>';
   } else if (t === 'group') {
     h += field('title', '分组标题', node.title);
   } else if (t === 'block') {
@@ -232,210 +230,493 @@ function confirmTextGen() {
   alert('已生成：' + d.layers.length + ' 层');
 }
 
-/* ================= 层间连线编辑弹窗 ================= */
-/* 独立于属性面板管理连线(行 = 起点层 → 终点层);保存时一次性 pushUndo */
-let _connDraft = [];   // [{id?, from, to, style, label}] 工作副本
-function connLayerOpts(selId) {
-  return (diagram.layers || []).map(function(l) {
-    return '<option value="' + l.id + '"' + (l.id === selId ? ' selected' : '') + '>' + esc(l.name || l.id) + '</option>';
-  }).join('');
+/* ================= 层间连线编辑面板 ================= */
+/* 右侧浮层面板(不遮画布):改连线时能同时看到图。
+   · 起点/终点是「手柄」按钮:点一下进入点选态,直接在画布上点层(捕获阶段拦下,不触发选中)
+   · 每次改动即时预览(草稿 overlay),保存才写入 diagram;取消回滚「显示」开关
+   · 「按层顺序自动连线」一键补满相邻层,增减行沿用上一条的终点/线型 */
+let _connDraft = [];        // [{id?, from, to, style, label}] 工作副本
+let _connVis0 = false;      // 打开面板时的 showConnections 原值(取消回滚)
+let _connPick = null;       // 待点选:{i: 行下标, f: 'from'|'to'}
+let _connEscH = null;       // 面板期 Esc 监听
+let _connClickH = null;     // 面板期画布点选监听(捕获阶段)
+
+function connLayerOf(id) {
+  var ls = (diagram && diagram.layers) || [];
+  for (var i = 0; i < ls.length; i++) if (ls[i].id === id) return ls[i];
+  return null;
+}
+function connLayerIndex(id) {
+  var ls = (diagram && diagram.layers) || [];
+  for (var i = 0; i < ls.length; i++) if (ls[i].id === id) return i;
+  return -1;
+}
+function connPickInner(c, f) {
+  var l = connLayerOf(c[f]);
+  if (!l) return '<span class="ce-ph">点此选择</span>';
+  return '<span class="ce-dot" style="background:' + (l.bandColor || '#2379bd') + '"></span>' +
+         '<span class="ce-nm">' + esc(l.name || '未命名层') + '</span>';
 }
 function connRowHtml(c, i) {
   var bad = (!c.from || !c.to || c.from === c.to);
-  var sOpts = ['solid|实线','dashed|虚线','dotted|点线'].map(function(s) {
-    var p = s.split('|');
-    return '<option value="' + p[0] + '"' + (c.style === p[0] ? ' selected' : '') + '>' + p[1] + '</option>';
+  var pick = (_connPick && _connPick.i === i) ? _connPick.f : '';
+  var sOpts = [['solid', '实线'], ['dashed', '虚线'], ['dotted', '点线']].map(function(p) {
+    return '<option value="' + p[0] + '"' + ((c.style || 'solid') === p[0] ? ' selected' : '') + '>' + p[1] + '</option>';
   }).join('');
-  return '<div class="ce-row' + (bad ? ' bad' : '') + '" data-i="' + i + '">' +
-    '<select class="ce-from" data-f="from" title="起点层（箭头从哪里出发）">' + connLayerOpts(c.from) + '</select>' +
-    '<span class="ce-arrow" aria-hidden="true">\u2192</span>' +
-    '<select class="ce-to" data-f="to" title="终点层（箭头指向哪里）">' + connLayerOpts(c.to) + '</select>' +
-    '<select class="ce-style" data-f="style">' + sOpts + '</select>' +
-    '<input class="ce-label" data-f="label" type="text" value="' + esc(c.label || '') + '" placeholder="说明(可留空)">' +
-    '<button type="button" class="ce-del" title="删除这一行">\u2715</button>' +
+  /* 横向流向只渲染相邻列:非相邻行就地提示,而不是保存后再弹警告 */
+  var warn = '';
+  if (diagram.layout === 'flow' && c.from && c.to && c.from !== c.to) {
+    if (connLayerIndex(c.to) !== connLayerIndex(c.from) + 1) {
+      warn = '「横向流向」只渲染相邻两列，这条不会出现在图上';
+    }
+  }
+  var rowCls = 'ce-row' + (bad ? ' bad' : '') + (warn ? ' warn' : '');
+  return '<div class="' + rowCls + '" data-i="' + i + '">' +
+    '<div class="ce-line1">' +
+      '<button type="button" class="ce-pick' + (pick === 'from' ? ' picking' : '') + '" data-f="from" data-i="' + i + '">'
+        + (pick === 'from' && !c.from ? '<span class="ce-ph">点画布上的层…</span>' : connPickInner(c, 'from')) + '</button>' +
+      '<span class="ce-arrow">\u2192</span>' +
+      '<button type="button" class="ce-pick' + (pick === 'to' ? ' picking' : '') + '" data-f="to" data-i="' + i + '">'
+        + (pick === 'to' && !c.to ? '<span class="ce-ph">点画布上的层…</span>' : connPickInner(c, 'to')) + '</button>' +
+      '<button type="button" class="ce-del" data-i="' + i + '" title="删除这条">\u2715</button>' +
+    '</div>' +
+    '<div class="ce-line2">' +
+      '<select class="ce-style" data-f="style" data-i="' + i + '">' + sOpts + '</select>' +
+      '<input class="ce-label" data-f="label" data-i="' + i + '" type="text" value="' + esc(c.label || '') + '" placeholder="说明(可留空，显示在箭头旁)">' +
+    '</div>' +
+    (warn ? '<div class="ce-warn">' + warn + '</div>' : '') +
     '</div>';
 }
 function renderConnRows() {
-  const wrap = document.getElementById('ceRows');
+  var wrap = document.getElementById('ceRows');
   if (!wrap) return;
-  const layers = diagram.layers || [];
+  var layers = (diagram && diagram.layers) || [];
   if (layers.length < 2) {
-    wrap.innerHTML = '<div class="ce-empty">至少需要 2 个层才能画连线（当前 ' + layers.length + ' 个）。</div>';
+    wrap.innerHTML = '<div class="ce-empty">至少需要 2 个层才能连线（当前 ' + layers.length + ' 个）。<br>先在左侧结构树里添加层。</div>';
     return;
   }
   wrap.innerHTML = _connDraft.length
-    ? '<div class="ce-head"><span>起点层</span><span></span><span>终点层</span><span>线型</span><span>说明</span><span></span></div>' +
-      _connDraft.map(connRowHtml).join('')
-    : '<div class="ce-empty">还没有连线。点下方「＋ 添加一行」,选择 起点层 → 终点层。</div>';
+    ? _connDraft.map(connRowHtml).join('')
+    : '<div class="ce-empty">还没有连线。<br>点「按层顺序自动连线」一键铺满相邻层，或「＋ 添加一条」手动选。</div>';
+}
+function ceTip(msg) {
+  var t = document.getElementById('ceTip');
+  if (t) t.textContent = msg || '';
+}
+/* 在面板里开始建/补连线时自动打开「在画布上显示」。
+   模板默认 showConnections:false，若不自动打开，保存后图上一条线都看不到（看起来像没生效）。
+   只改内存并在保存时落盘；点「取消」仍按 _connVis0 回滚。 */
+function connEnsureVisible() {
+  if (!diagram || diagram.showConnections) return;
+  if (!_connDraft.length) return;
+  diagram.showConnections = true;
+  var cb = document.querySelector('#connPanel [data-cmd="conn-vis"]');
+  if (cb) cb.checked = true;
+  updateConnBtn();
 }
 function syncConnBadges() {
-  /* 自环/未选时标红;阻止保存按钮 */
   var bad = _connDraft.some(function(c) { return !c.from || !c.to || c.from === c.to; });
   var btn = document.getElementById('ceSave');
   if (btn) btn.disabled = bad;
-  var tip = document.getElementById('ceTip');
-  if (tip) tip.textContent = bad ? '有未完成或指向自身的红色行,需修正后才能保存。' : (diagram.layers || []).length < 2 ? '' : '改动点「保存」生效；取消则放弃。';
-  document.querySelectorAll('#connModal .ce-row').forEach(function(row) {
+  document.querySelectorAll('#connPanel .ce-row').forEach(function(row) {
     var c = _connDraft[parseInt(row.getAttribute('data-i'), 10)];
     var isBad = c && (!c.from || !c.to || c.from === c.to);
     row.classList.toggle('bad', !!isBad);
   });
+  if (bad) ceTip('有未完成或指向自身的行（红框），修正后才能保存。');
 }
-let _connEscH = null;   // 弹窗期 document 级 Esc 监听
-function showConnModal() {
+/* 草稿 → 画布预览(不写 diagram,不落盘) */
+function connPreview() {
   if (!diagram) return;
-  closeConnModal();     // 清理旧弹窗及其监听
-  _connDraft = (diagram.connections || []).map(function(c) { return { id: c.id, from: c.from, to: c.to, style: c.style || 'solid', label: c.label || '' }; });
-  const layers = diagram.layers || [];
-  const overlay = document.createElement('div');
-  overlay.id = 'connModal';
-  overlay.className = 'tg-overlay';
-  overlay.innerHTML =
-    '<div class="tg-dialog ce-dialog">' +
-      '<div class="ce-headbar"><div class="ce-title">编辑层间连线</div>' +
-      '<label class="ce-vis"><input type="checkbox" data-cmd="conn-vis"' + (diagram.showConnections ? ' checked' : '') + '> 在画布上显示</label></div>' +
-      '<div class="ce-hint">每一行是一条从「起点层」指向「终点层」的箭头；线型可选虚线/点线表示弱关系。连线在 <b>多层横向</b> 任意层对渲染；在 <b>横向流向</b> 仅相邻两列间渲染。</div>' +
-      '<div class="ce-list" id="ceRows"></div>' +
-      '<button type="button" class="ce-add" data-cmd="conn-add">＋ 添加一行</button>' +
-      '<div class="tg-actions ce-actions">' +
-        '<span class="ce-tip" id="ceTip"></span>' +
-        '<button type="button" class="tg-btn" data-cmd="conn-cancel">取消</button>' +
-        '<button type="button" class="tg-btn primary" id="ceSave" data-cmd="conn-save">保存</button>' +
-      '</div>' +
+  /* 「在画布上显示」关掉时预览也要一起关,否则取消回滚看起来没生效 */
+  var on = !!diagram.showConnections;
+  var rows = on ? _connDraft.filter(function(c) { return c.from && c.to && c.from !== c.to; }) : [];
+  if (diagram.layout === 'layered') {
+    /* 预览时的轨道数来自草稿:补足左边距,否则新增层对的竖轨会叠在层名色带上 */
+    var stack = document.querySelector('#archCanvas .lay-stack');
+    if (stack) {
+      stack.style.paddingLeft = (on ? connRailPad(rows) : 30) + 'px';
+    } else {
+      var cv = canvasRef();
+      if (cv) cv.style.paddingLeft = (on && rows.length) ? Math.max(18, connRailPad(rows) + 1) + 'px' : '';
+    }
+  }
+  drawConnections({ conns: rows, force: true });
+}
+function connAddRow() {
+  var ls = (diagram && diagram.layers) || [];
+  var last = _connDraft[_connDraft.length - 1];
+  /* 智能默认:起点接上一条的终点(画连续箭头时不用每次重选),终点取它的下一层 */
+  var fromId = (last && last.to) || (ls[0] && ls[0].id) || '';
+  var fi = connLayerIndex(fromId);
+  var next = ls[fi + 1] || {};
+  _connDraft.push({ from: fromId, to: next.id || '', style: (last && last.style) || 'solid', label: '' });
+  _connPick = { i: _connDraft.length - 1, f: 'to' };
+  connEnsureVisible();
+  renderConnRows(); syncConnBadges(); connPreview();
+  canvasRef().classList.add('conn-picking');
+  ceTip('点画布上的层作为「终点」，或点行内「终点」按钮换起点。');
+}
+function connAutoFill() {
+  var ls = (diagram && diagram.layers) || [];
+  if (ls.length < 2) { ceTip('至少要有 2 个层才能自动连线。'); return; }
+  var added = 0;
+  for (var k = 0; k < ls.length - 1; k++) {
+    var a = ls[k].id, b = ls[k + 1].id;
+    var has = _connDraft.some(function(c) { return c.from === a && c.to === b; });
+    if (!has) { _connDraft.push({ from: a, to: b, style: 'solid', label: '' }); added++; }
+  }
+  connEnsureVisible();
+  renderConnRows(); syncConnBadges(); connPreview();
+  ceTip(added ? '已补 ' + added + ' 条相邻连线，改说明或删掉不需要的即可。' : '相邻层之间都已经有连线了。');
+}
+function connPickStart(i, f) {
+  var layers = (diagram && diagram.layers) || [];
+  if (layers.length < 2) { ceTip('至少要有 2 个层才能连线。'); return; }
+  if (_connPick && _connPick.i === i && _connPick.f === f) { connPickStop(); return; }  /* 再点一次取消 */
+  _connPick = { i: i, f: f };
+  renderConnRows();
+  canvasRef().classList.add('conn-picking');
+  ceTip('在画布上点一个层作为「' + (f === 'from' ? '起点' : '终点') + '」；再点同一按钮取消。');
+}
+function connPickStop() {
+  _connPick = null;
+  var cv = canvasRef();
+  if (cv) cv.classList.remove('conn-picking');
+  renderConnRows();
+  ceTip('');
+}
+/* 画布点选:捕获阶段拦下,不触发画布的选中/属性面板 */
+function connPickHandle(e) {
+  if (!_connPick) return;
+  var t = e.target;
+  var sec = (t && t.closest) ? t.closest('#archCanvas section.layer') : null;
+  if (!sec) return;   /* 点空白或面板内部不处理,保持点选态 */
+  e.preventDefault();
+  e.stopPropagation();
+  var id = sec.getAttribute('data-id');
+  var row = _connDraft[_connPick.i];
+  if (!row) { connPickStop(); return; }
+  var f = _connPick.f, i = _connPick.i;
+  var fromId = f === 'from' ? id : row.from;
+  var toId = f === 'to' ? id : row.to;
+  /* 横向流向只渲染相邻列:点选时就拦下,不让人配出永不显示的线 */
+  if (diagram.layout === 'flow' && fromId && toId) {
+    var fi = connLayerIndex(fromId), ti = connLayerIndex(toId);
+    if (Math.abs(ti - fi) !== 1) {
+      var a = connLayerOf(fromId), b = connLayerOf(toId);
+      ceTip('「横向流向」只能连相邻两列：' + ((a && a.name) || '?') + ' 与 ' + ((b && b.name) || '?') + ' 不相邻。');
+      return;
+    }
+  }
+  row[f] = id;
+  _connPick = null;
+  var cv = canvasRef();
+  if (cv) cv.classList.remove('conn-picking');
+  /* 刚选完起点 → 自动接着选终点 */
+  if (f === 'from' && (!row.to || row.to === row.from)) {
+    _connPick = { i: i, f: 'to' };
+    if (cv) cv.classList.add('conn-picking');
+    renderConnRows(); syncConnBadges(); connPreview();
+    ceTip('起点已选，再点一个层作为「终点」。');
+    return;
+  }
+  renderConnRows(); syncConnBadges(); connPreview();
+  ceTip('');
+}
+function connPanelHtml() {
+  var flow = diagram.layout === 'flow';
+  return '<div class="ce-head">' +
+      '<span class="ce-title">层间连线</span>' +
+      '<label class="ce-vis"><input type="checkbox" data-cmd="conn-vis"' + (diagram.showConnections ? ' checked' : '') + '> 在画布上显示</label>' +
+      '<button type="button" class="ce-x" data-cmd="conn-close" title="关闭（等同取消）">\u2715</button>' +
+    '</div>' +
+    '<div class="ce-hint">' + (flow
+      ? '「横向流向」：只能连<b>相邻两列</b>，箭头画在列间空隙里，说明显示在箭头上方。'
+      : '「多层横向」：任意层对都能连，箭头从起点层左缘出发、经左侧竖轨指向终点层，说明显示在竖轨旁。') +
+      '点「起点」或「终点」后，直接在画布上点对应的层。</div>' +
+    '<div class="ce-list" id="ceRows"></div>' +
+    '<div class="ce-tools">' +
+      '<button type="button" class="ce-btn" data-cmd="conn-auto">按层顺序自动连线</button>' +
+      '<button type="button" class="ce-btn" data-cmd="conn-add">＋ 添加一条</button>' +
+    '</div>' +
+    '<div class="ce-foot">' +
+      '<span class="ce-tip" id="ceTip"></span>' +
+      '<button type="button" class="ce-btn" data-cmd="conn-cancel">取消</button>' +
+      '<button type="button" class="ce-btn primary" id="ceSave" data-cmd="conn-save">保存</button>' +
     '</div>';
-  document.body.appendChild(overlay);
+}
+function showConnPanel(prefillFrom) {
+  if (!diagram) return;
+  closeConnPanel(false);
+  /* 收起工具栏下拉(closeMenus 是 bindEvents 内的局部函数,这里直接关) */
+  document.querySelectorAll('.menu-drop.open').forEach(function(m) { m.classList.remove('open'); });
+  _connDraft = (diagram.connections || []).map(function(c) {
+    return { id: c.id, from: c.from, to: c.to, style: c.style || 'solid', label: c.label || '' };
+  });
+  /* 从层属性面板进来时,把该层预填为起点 */
+  if (prefillFrom) _connDraft.push({ from: prefillFrom, to: '', style: 'solid', label: '' });
+  _connVis0 = !!diagram.showConnections;
+  _connPick = null;
+  var el = document.createElement('div');
+  el.id = 'connPanel';
+  el.className = 'ce-panel';
+  el.innerHTML = connPanelHtml();
+  document.body.appendChild(el);
+  /* 面板贴工具栏下沿(工具栏可折行),高度不超出视口 */
+  var tb = document.getElementById('toolbar');
+  if (tb) {
+    var top = Math.ceil(tb.getBoundingClientRect().bottom) + 8;
+    el.style.top = top + 'px';
+    el.style.maxHeight = Math.max(220, window.innerHeight - top - 12) + 'px';
+  }
+  if (prefillFrom) connEnsureVisible();   /* 从层属性进来即视为开始建线 */
   renderConnRows();
   syncConnBadges();
-  if (layers.length < 2) {
-    const vis = overlay.querySelector('[data-cmd="conn-vis"]');
-    if (vis) vis.disabled = true;
-  }
-  /* 弹窗内事件(委托) */
-  overlay.addEventListener('change', e => {
-    const vis = e.target.closest('[data-cmd="conn-vis"]');
+  connPreview();
+  /* ---- 面板内事件(委托) ---- */
+  el.addEventListener('change', function(e) {
+    var vis = e.target.closest('[data-cmd="conn-vis"]');
     if (vis) {
-      diagram.showConnections = vis.checked;
-      persist(); render(); updateConnBtn();
+      diagram.showConnections = vis.checked;   /* 即时生效,面板关闭时可回滚 */
+      persist(); render();
+      if (_connPick) canvasRef().classList.add('conn-picking');
+      connPreview();
       return;
     }
-    const sel = e.target.closest('select[data-f]');
-    if (sel && diagram) {
-      const row = sel.closest('.ce-row');
-      const i = parseInt(row.getAttribute('data-i'), 10);
-      const c = _connDraft[i];
-      if (!c) return;
-      c[sel.getAttribute('data-f')] = sel.value;
-      syncConnBadges();
+    var s = e.target.closest('select.ce-style');
+    if (s) {
+      var row = _connDraft[+s.getAttribute('data-i')];
+      if (row) row.style = s.value;
+      connPreview();
     }
   });
-  overlay.addEventListener('input', e => {
-    const inp = e.target.closest('input[data-f]');
+  /* 说明文字只改草稿 + 预览,不重建行(否则中文输入法组合会被打断) */
+  el.addEventListener('input', function(e) {
+    var inp = e.target.closest('input.ce-label');
     if (!inp) return;
-    const row = inp.closest('.ce-row');
-    const i = parseInt(row.getAttribute('data-i'), 10);
-    const c = _connDraft[i];
-    if (c) c.label = inp.value;
+    var row = _connDraft[+inp.getAttribute('data-i')];
+    if (row) row.label = inp.value;
+    connPreview();
   });
-  overlay.addEventListener('click', e => {
-    const del = e.target.closest('.ce-del');
+  el.addEventListener('click', function(e) {
+    if (e.target.closest('[data-cmd="conn-close"]') || e.target.closest('[data-cmd="conn-cancel"]')) { closeConnPanel(true); return; }
+    if (e.target.closest('[data-cmd="conn-save"]')) { saveConnPanel(); return; }
+    if (e.target.closest('[data-cmd="conn-add"]')) { connAddRow(); return; }
+    if (e.target.closest('[data-cmd="conn-auto"]')) { connAutoFill(); return; }
+    var del = e.target.closest('.ce-del');
     if (del) {
-      const row = del.closest('.ce-row');
-      _connDraft.splice(parseInt(row.getAttribute('data-i'), 10), 1);
-      renderConnRows();
-      syncConnBadges();
+      _connPick = null;
+      var cv = canvasRef();
+      if (cv) cv.classList.remove('conn-picking');
+      _connDraft.splice(+del.getAttribute('data-i'), 1);
+      renderConnRows(); ceTip(''); syncConnBadges(); connPreview();
       return;
     }
-    const add = e.target.closest('[data-cmd="conn-add"]');
-    if (add) {
-      const ls = diagram.layers || [];
-      _connDraft.push({ from: ls[0] && ls[0].id, to: ls[1] && ls[1].id, style: 'solid', label: '' });
-      renderConnRows();
-      syncConnBadges();
-      return;
-    }
-    if (e.target.closest('[data-cmd="conn-cancel"]') || e.target === overlay) { closeConnModal(); return; }
-    if (e.target.closest('[data-cmd="conn-save"]')) { saveConnModal(); return; }
+    var pk = e.target.closest('.ce-pick');
+    if (pk) { connPickStart(+pk.getAttribute('data-i'), pk.getAttribute('data-f')); return; }
   });
-  /* Esc 关闭:焦点可能在弹窗外,挂 document 级监听 */
-  _connEscH = function(e) { if (e.key === 'Escape') closeConnModal(); };
-  document.addEventListener('keydown', _connEscH);
+  /* Esc = 取消(焦点可能不在面板上,挂 document 级) */
+  _connEscH = function(e) {
+    if (e.key !== 'Escape') return;
+    e.stopPropagation();
+    closeConnPanel(true);
+  };
+  document.addEventListener('keydown', _connEscH, true);
+  _connClickH = function(e) { connPickHandle(e); };
+  document.addEventListener('click', _connClickH, true);
 }
-function closeConnModal() {
-  if (_connEscH) { document.removeEventListener('keydown', _connEscH); _connEscH = null; }
-  const m = document.getElementById('connModal');
+/* rollback=true:丢弃草稿,并把「在画布上显示」恢复到打开面板时的状态 */
+function closeConnPanel(rollback) {
+  if (_connEscH) { document.removeEventListener('keydown', _connEscH, true); _connEscH = null; }
+  if (_connClickH) { document.removeEventListener('click', _connClickH, true); _connClickH = null; }
+  _connPick = null;
+  var cv = canvasRef();
+  if (cv) cv.classList.remove('conn-picking');
+  var m = document.getElementById('connPanel');
+  var had = !!m;
   if (m) m.remove();
   _connDraft = [];
+  if (!diagram) return;
+  if (rollback && diagram.showConnections !== _connVis0) {
+    diagram.showConnections = _connVis0;
+    persist();
+  }
+  /* 重画:去掉预览 overlay(+预览期临时加的左内边距),回到真实连线 */
+  if (had) render();
+  updateConnBtn();
 }
-function saveConnModal() {
-  const rows = _connDraft.filter(function(c) { return c.from && c.to && c.from !== c.to; });
+function saveConnPanel() {
+  var rows = _connDraft.filter(function(c) { return c.from && c.to && c.from !== c.to; });
+  /* 兜底:图里原本没有连线、用户又是在关着「在画布上显示」的情况下录进来的,
+     保存时自动打开显示,否则落盘了却一条线都看不见。已有关联线时尊重用户的显示开关。 */
+  if (rows.length && !diagram.showConnections && !(diagram.connections || []).length) {
+    diagram.showConnections = true;
+  }
   pushUndo();
-  diagram.connections = rows.map(function(c) { return { id: c.id || uid(), from: c.from, to: c.to, style: c.style || 'solid', label: c.label || '' }; });
-  closeConnModal();
-  persist(); render(); renderProps();
-  if (diagram.layout !== 'layered') alert('已保存连线数据。连线在「多层横向」任意层对渲染；在「横向流向」仅相邻两列间渲染。');
+  diagram.connections = rows.map(function(c) {
+    return { id: c.id || uid(), from: c.from, to: c.to, style: c.style || 'solid', label: c.label || '' };
+  });
+  /* closeConnPanel(false) 内部已经 render()(用刚写入的 connections) */
+  closeConnPanel(false);
+  persist();
+  renderProps();
 }
 
 /* ================= SVG 导出（离线，替代 html2canvas，无任何网络依赖） ================= */
 /* 以现有 DOM 渲染为布局引擎：测量元素坐标生成纯 SVG（不用 foreignObject，保证可栅格化） */
+let _clipSeq = 0;
+
 function buildSvgString() {
   const root = document.querySelector('#captureArea .arch .canvas');
   if (!root) throw new Error('画布未就绪');
   const R = root.getBoundingClientRect();
   const scale = R.width / (root.offsetWidth || 1);   // 还原 transform 缩放
   const W = Math.ceil(R.width / scale), H = Math.ceil(R.height / scale);
-  const parts = [];
-  collectSvg(root, R, scale, parts);
+  const defs = [];                                   // clipPath 等可复用定义
+  _clipSeq = 0;
+  let body = collectSvg(root, R, scale, defs);
   /* 注入连线 SVG 片段(与 DOM overlay 同几何,所见即所得) */
-  try { const cx = connSvgXml(); if (cx) parts.push(cx); } catch (e) {}
+  try { const cx = connSvgXml(); if (cx) body += cx; } catch (e) {}
   return '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
-    parts.join('') + '</svg>';
+    (defs.length ? '<defs>' + defs.join('') + '</defs>' : '') + body + '</svg>';
 }
-function collectSvg(el, rootRect, scale, parts) {
+
+/* 计算样式 → SVG style 串（font-family 计算值含双引号，转单引号避免破坏属性语法） */
+function svgTextStyle(st) {
+  const fs = parseFloat(st.fontSize) || 13;
+  const ls = (st.letterSpacing && st.letterSpacing !== 'normal') ? ';letter-spacing:' + st.letterSpacing : '';
+  return ('font-size:' + fs + 'px;font-weight:' + st.fontWeight + ';font-family:' + st.fontFamily +
+    ';fill:' + st.color + ls).replace(/"/g, "'");
+}
+
+/* 文本节点的视口包围盒（用于竖排整段绘制、判断是否只有一行） */
+function textBoxOf(node) {
+  const range = document.createRange();
+  range.setStart(node, 0);
+  range.setEnd(node, (node.nodeValue || '').length);
+  const rects = range.getClientRects();
+  let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+  for (let i = 0; i < rects.length; i++) {
+    const q = rects[i];
+    if (q.width < 0.01 && q.height < 0.01) continue;
+    if (q.left < l) l = q.left;
+    if (q.top < t) t = q.top;
+    if (q.right > r) r = q.right;
+    if (q.bottom > b) b = q.bottom;
+  }
+  if (l === Infinity) return null;
+  return { left: l, top: t, width: r - l, height: b - t };
+}
+
+/* 按「浏览器实际断行」把文本节点切成若干行：逐字测 client rect 后按行聚合。
+   导出必须复用 DOM 的折行结果，否则长文本会被画成一整行压到相邻区块上。 */
+function measureTextLines(node) {
+  const raw = node.nodeValue || '';
+  if (!raw.trim()) return [];
+  const range = document.createRange();
+  const lines = [];
+  let off = 0;
+  Array.from(raw).forEach(ch => {
+    const start = off, end = off + ch.length;
+    off = end;
+    range.setStart(node, start);
+    range.setEnd(node, end);
+    const rects = range.getClientRects();
+    if (!rects.length) {                       // 折行处的空白等没有几何信息 → 并入当前行
+      if (lines.length) lines[lines.length - 1].text += ch;
+      return;
+    }
+    const q = rects[rects.length - 1];
+    const cy = (q.top + q.bottom) / 2;
+    let ln = lines[lines.length - 1];
+    if (!ln || Math.abs(cy - ln.baseCy) > 2.5) {   // 行中心变了 → 新的一行(2.5px 容差防中英混排基线抖动)
+      ln = { text: '', left: q.left, top: q.top, bottom: q.bottom, baseCy: cy };
+      lines.push(ln);
+    }
+    ln.text += ch;
+    if (q.left < ln.left) ln.left = q.left;
+    if (q.top < ln.top) ln.top = q.top;
+    if (q.bottom > ln.bottom) ln.bottom = q.bottom;
+  });
+  return lines
+    .map(ln => ({ text: ln.text.trim(), left: ln.left, top: ln.top, height: ln.bottom - ln.top }))
+    .filter(ln => ln.text);
+}
+
+/* 元素「直接文本节点」→ SVG <text>（子元素文本由子元素自己绘制） */
+function svgTextOf(el, rootRect, scale, st) {
+  const nodes = [];
+  for (const n of el.childNodes) { if (n.nodeType === 3 && n.nodeValue.trim()) nodes.push(n); }
+  if (!nodes.length) return '';
+  const css = svgTextStyle(st);
+  const fs = parseFloat(st.fontSize) || 13;
+  const vertical = /vertical/.test(st.writingMode);
+  let out = '';
+  nodes.forEach(n => {
+    const box = textBoxOf(n);
+    if (!box) return;
+    const cx = (box.left + box.width / 2 - rootRect.left) / scale;
+    const cy = (box.top + box.height / 2 - rootRect.top) / scale;
+    /* 竖排（层名色带、体系说明条目）：整段按文字包围盒中心绘制，保留 writing-mode */
+    if (vertical) {
+      out += '<text x="' + cx.toFixed(1) + '" y="' + cy.toFixed(1) + '" text-anchor="middle"' +
+        ' style="' + css + ';writing-mode:vertical-rl;text-orientation:mixed">' + esc(n.nodeValue.trim()) + '</text>';
+      return;
+    }
+    /* 单行（绝大多数）：直接用包围盒，锚点取实际行首，居中/右对齐都准确 */
+    if (box.height <= fs * 1.6) {
+      out += '<text x="' + ((box.left - rootRect.left) / scale).toFixed(1) + '" y="' +
+        (cy + fs * 0.35).toFixed(1) + '" text-anchor="start" style="' + css + '">' +
+        esc(n.nodeValue.trim()) + '</text>';
+      return;
+    }
+    /* 多行：逐行绘制（行首 x 由 DOM 决定，多行居中也对得上） */
+    measureTextLines(n).forEach(ln => {
+      const lx = (ln.left - rootRect.left) / scale;
+      const sy = (ln.top + ln.height / 2 - rootRect.top) / scale + fs * 0.35;
+      out += '<text x="' + lx.toFixed(1) + '" y="' + sy.toFixed(1) + '" text-anchor="start" style="' + css + '">' +
+        esc(ln.text) + '</text>';
+    });
+  });
+  return out;
+}
+
+function collectSvg(el, rootRect, scale, defs) {
   // 跳过 SVG 子树(如 conn-overlay):其内容由 connSvgXml 独立注入导出,
   // 否则递归会重复绘制 overlay 里的 text/rect
-  if (el.tagName && el.tagName.toLowerCase() === 'svg') return;
+  if (!el || el.nodeType !== 1) return '';
+  if (el.tagName.toLowerCase() === 'svg') return '';
+  const st = getComputedStyle(el);
+  if (st.display === 'none' || st.visibility === 'hidden' || st.opacity === '0') return '';
   const r = el.getBoundingClientRect();
   const w = r.width / scale, h = r.height / scale;
-  if (w < 0.5 || h < 0.5) return;                       // 隐藏/空元素跳过
+  if (w < 0.5 || h < 0.5) return '';                    // 隐藏/空元素跳过（必须返回空串，undefined 会被拼进 SVG）
   const x = (r.left - rootRect.left) / scale;
   const y = (r.top - rootRect.top) / scale;
-  const st = getComputedStyle(el);
+  let out = '';
   // 背景 / 边框矩形（虚线边框转 stroke-dasharray）
   const bg = st.backgroundColor;
   const bw = parseFloat(st.borderTopWidth) || 0;
   if (bg !== 'rgba(0, 0, 0, 0)' || bw > 0) {
     const rx = parseFloat(st.borderTopLeftRadius) || 0;
     const dash = st.borderTopStyle === 'dashed' ? ' stroke-dasharray="7 4"' : '';
-    parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '"' +
+    out += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '"' +
       ' rx="' + rx + '" ry="' + rx + '" fill="' + (bg !== 'rgba(0, 0, 0, 0)' ? bg : 'none') + '"' +
-      (bw > 0 ? ' stroke="' + st.borderTopColor + '" stroke-width="' + bw + '"' + dash : '') + '/>');
+      (bw > 0 ? ' stroke="' + st.borderTopColor + '" stroke-width="' + bw + '"' + dash : '') + '/>';
   }
-  // 直接文本节点（子元素文本由子元素自己绘制）
-  let text = '';
-  for (const n of el.childNodes) { if (n.nodeType === 3) text += n.nodeValue; }
-  text = text.trim();
-  if (text) {
-    const fs = parseFloat(st.fontSize) || 13;
-    // font-family 计算值含双引号，转单引号避免破坏 SVG 属性语法
-    const css = ('font-size:' + fs + 'px;font-weight:' + st.fontWeight + ';font-family:' + st.fontFamily + ';fill:' + st.color +
-      (st.letterSpacing !== 'normal' ? ';letter-spacing:' + st.letterSpacing : '')).replace(/"/g, "'");
-    const tx = x + w / 2, ty = y + h / 2;
-    if (/vertical/.test(st.writingMode)) {
-      parts.push('<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" text-anchor="middle"' +
-        ' style="' + css + ';writing-mode:vertical-rl;text-orientation:mixed">' + esc(text) + '</text>');
-    } else {
-      const pTop = parseFloat(st.paddingTop) || 0, pBottom = parseFloat(st.paddingBottom) || 0;
-      const pLeft = parseFloat(st.paddingLeft) || 0, pRight = parseFloat(st.paddingRight) || 0;
-      let sx, anchor;
-      if (st.textAlign === 'center') { sx = x + w / 2; anchor = 'middle'; }
-      else if (st.textAlign === 'right') { sx = x + w - pRight; anchor = 'end'; }
-      else { sx = x + pLeft; anchor = 'start'; }
-      const sy = y + pTop + (h - pTop - pBottom) / 2 + fs * 0.35;
-      parts.push('<text x="' + sx.toFixed(1) + '" y="' + sy.toFixed(1) + '" text-anchor="' + anchor + '" style="' + css + '">' + esc(text) + '</text>');
-    }
+  // 文本（按 DOM 实际断行） + 子元素
+  let inner = svgTextOf(el, rootRect, scale, st);
+  for (const c of el.children) inner += collectSvg(c, rootRect, scale, defs);
+  // overflow 裁切：网页里内容超出容器会被裁掉，PNG/SVG 也必须裁，否则长文本会溢出到相邻区块
+  if (inner && /hidden|clip|auto|scroll/.test(st.overflowX + ' ' + st.overflowY)) {
+    const id = 'ck' + (++_clipSeq);
+    defs.push('<clipPath id="' + id + '"><rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) +
+      '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '"/></clipPath>');
+    inner = '<g clip-path="url(#' + id + ')">' + inner + '</g>';
   }
-  for (const c of el.children) collectSvg(c, rootRect, scale, parts);
+  return out + inner;
 }
 function svgToPngDataUrl(svgText, scale) {
   return new Promise((resolve, reject) => {
@@ -798,7 +1079,7 @@ function bindEvents() {
         diagram.showConnections = !diagram.showConnections;
         persist(); render(); renderProps(); updateConnBtn();
       }
-      else if (cmd === 'edit-conn') { if (diagram) showConnModal(); }
+      else if (cmd === 'edit-conn') { if (diagram) showConnPanel(); }
       else if (cmd === 'undo') undo();
       else if (cmd === 'redo') redo();
     });
@@ -847,6 +1128,9 @@ function bindEvents() {
     }, 0);
   });
   document.getElementById('props').addEventListener('click', e => {
+    /* 层属性面板里的连线入口:以该层为起点打开连线面板(不依赖 selectedId 逻辑) */
+    const openConn = e.target.closest('[data-open-conn]');
+    if (openConn) { showConnPanel(openConn.getAttribute('data-open-conn')); return; }
     if (!selectedId) return;
     const node = findNode(selectedId);
     if (!node) return;

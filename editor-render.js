@@ -21,7 +21,8 @@ function renderBody() {
   if (d.layout === 'layered') {
     body = renderLayered(d);
     if (d.showConnections && (d.connections || []).length > 0) {
-      body = '<div class="lay-stack">' + body + '</div>';
+      /* 左内边距随连线轨道数增长,给多条平行竖轨留出横向空间(与 connItems 的车道算法一致) */
+      body = '<div class="lay-stack" style="padding-left:' + connRailPad(d.connections) + 'px">' + body + '</div>';
     }
     if (d.sidebar && d.sidebar.length) {
       body = '<div class="side-layout">' +
@@ -88,7 +89,10 @@ function renderItemsHtml(items) {
 function renderLayered(d) {
   return (d.layers || []).map(layer => {
     const cols = layer.cols || 3;
-    const colCls = cols === 2 ? 'col2' : (cols === 1 ? 'col1' : 'col3');
+    /* 列数不超过实际分组数：少于 cols 个分组时不再空出右侧整列（2 组按 3 列排会白占 1/3 宽度） */
+    const gcount = Math.max(1, (layer.groups || []).length);
+    const fitCols = Math.min(cols, gcount);
+    const colCls = fitCols === 2 ? 'col2' : (fitCols === 1 ? 'col1' : 'col3');
     const groups = (layer.groups || []).map(g => {
       const blocks = (g.blocks || []).map(b => {
         const spanCls = b.span === 2 ? ' span2' : '';

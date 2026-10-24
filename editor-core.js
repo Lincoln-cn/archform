@@ -22,7 +22,8 @@ function normalizeV2(d) {
     if (!VALID_STYLES[c.style]) c.style = 'solid';
     if (typeof c.label !== 'string') c.label = '';
   });
-  if (d.showConnections == null) d.showConnections = false;
+  /* 字段缺失时按「有没有连线」兜底:老文件里存了连线却没有开关字段,默认应该显示出来 */
+  if (d.showConnections == null) d.showConnections = d.connections.length > 0;
 }
 /* 迁移/校验旧数据:返回迁移后的图;若返回 {error} 表示无法加载(版本过高) */
 function migrateDiagram(d) {
