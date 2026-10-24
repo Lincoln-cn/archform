@@ -14,12 +14,12 @@
 
 ## Preview
 
-| | |
-|---|---|
-| Overall Architecture · layered · default blue | Data Architecture · layered (palette switchable; shown in green) |
-| ![Overall Architecture template](docs/images/preview.png) | ![Data Architecture template with green palette](docs/images/data-green.png) |
-| Data Architecture · flow layout | Clean PNG export (standalone, current palette) |
-| ![Data Architecture flow layout](docs/images/flow-preview.png) | ![Standalone PNG export](docs/images/export-data.png) |
+| | | |
+|---|---|---|
+| Editor · Data Architecture (its own violet palette) | Start page · twelve live-rendered thumbnails | Template library · search, layout filter, scenario tags |
+| ![Editor with the Data Architecture template](docs/images/editor.png) | ![Start page](docs/images/start-page.png) | ![Template library](docs/images/template-library.png) |
+| Flow layout · Data Flow (violet) | Overall Architecture · layered (slate palette) | Clean PNG export (standalone, 2× scale) |
+| ![Data Flow template in the flow layout](docs/images/flow-preview.png) | ![Overall Architecture template](docs/images/overall.png) | ![Standalone PNG export](docs/images/export-data.png) |
 
 ## Why not another canvas tool?
 

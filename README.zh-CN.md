@@ -14,12 +14,12 @@
 
 ## 预览
 
-| | |
-|---|---|
-| 总体架构 · 分层板式 · 经典蓝 | 数据架构 · 分层板式(配色可切换,图为青绿) |
-| ![总体架构模板](docs/images/preview.png) | ![数据架构模板(青绿配色)](docs/images/data-green.png) |
-| 数据架构 · 横向流向板式 | 纯净 PNG 导出(独立产物,含当前配色) |
-| ![数据架构横向流向板式](docs/images/flow-preview.png) | ![纯净 PNG 导出](docs/images/export-data.png) |
+| | | |
+|---|---|---|
+| 编辑器 · 数据架构(模板自带紫罗兰配色) | 开始页 · 12 个模板实时渲染缩略图 | 模板库 · 搜索 / 板式筛选 / 场景标签 |
+| ![数据架构模板的编辑器界面](docs/images/editor.png) | ![开始页](docs/images/start-page.png) | ![模板库](docs/images/template-library.png) |
+| 横向流向板式 · 数据流转(紫罗兰) | 总体架构 · 分层板式(灰蓝配色) | 纯净 PNG 导出(独立产物,2 倍图) |
+| ![数据流转模板的横向流向板式](docs/images/flow-preview.png) | ![总体架构模板](docs/images/overall.png) | ![纯净 PNG 导出](docs/images/export-data.png) |
 
 ## 为什么不是又一个画布工具?
 
