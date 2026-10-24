@@ -16,7 +16,7 @@
 
 | | |
 |---|---|
-| Overall Architecture · layered · default blue | Data Architecture · layered · green palette |
+| Overall Architecture · layered · default blue | Data Architecture · layered (palette switchable; shown in green) |
 | ![Overall Architecture template](docs/images/preview.png) | ![Data Architecture template with green palette](docs/images/data-green.png) |
 | Data Architecture · flow layout | Clean PNG export (standalone, current palette) |
 | ![Data Architecture flow layout](docs/images/flow-preview.png) | ![Standalone PNG export](docs/images/export-data.png) |
@@ -27,6 +27,8 @@ Layered architecture diagrams are roughly 90% nested structure — **Layer → G
 
 ## Features
 
+- **Start page** — first run opens a launcher that explains what the tool does, offers blank / from-text / import JSON, and shows all twelve templates as **live-rendered thumbnails** (drawn by the real render engine, so they never go stale); reopen it any time from the toolbar's **Start** button
+- **Per-template palette** — each template ships with its own palette (blue / slate / forest / violet / aqua / amber), so the gallery reads as twelve different diagram types instead of twelve copies of the same blue; switching templates inside the editor keeps the palette you already picked
 - **Structured input** — edit a four-level tree (Diagram → Layer → Group → Block → Item); a quick-add bar at the bottom of the tree types nodes with Enter / Tab / Shift+Tab, and a right-click context menu covers new / copy / paste / move up / move down / delete
 - **Undo / redo** — 50-step history across every edit (structure, properties, color schemes, template loads), Ctrl+Z / Ctrl+Shift+Z
 - **Automatic layout** — two paradigms over the same data, switchable without losing anything: *layered* and *flow* (horizontal); legacy cards/central data auto-converts to layered on open
@@ -37,10 +39,13 @@ Layered architecture diagrams are roughly 90% nested structure — **Layer → G
 - **Auto statistics** — each layer shows its group / block / item counts automatically (toggleable per layer)
 - **Fully offline** — export vector **SVG**, high-resolution **PNG** (2×), or a standalone **HTML** file with embedded vector data; zero network requests, zero runtime dependencies, double-click `file://` to run
 - **Versioned data** — every diagram carries a `schemaVersion` and is auto-migrated on load (`migrateDiagram`); JSON import/export plus `localStorage` autosave
+- **Template library** — the toolbar's **Template** button opens a searchable gallery (search, layout filter, scenario tags) with live-rendered thumbnails, so it still works when the catalogue grows to dozens of templates instead of turning into one long dropdown
 - **Twelve built-in templates** — Generic Layered, Overall Architecture, Application Architecture, Data Architecture (data-warehouse layering), Technology Architecture, Middle Platform, Cloud Platform, Microservices, Security (MLPS 2.0), plus 3 flow-layout templates: Data Flow, Service Call Chain, Event Stream
 - **Layer connections** — optional inter-layer connection lines (layered layout only); arrows with labels and line styles; toggle via View menu
 - **Module badges** — `[call:xx]` / `[depends:xx]` tags in item lists rendered as inline badges across all layouts
 - **Export draw.io** — escape hatch: export `.drawio` XML for further editing in draw.io (free-form curves, complex layouts)
+- **Deep links** — `?tpl=<key>` creates a diagram from a template (with that template's palette), `?preview=1` opens straight into preview mode, `?start=1` opens the start page — handy for bookmarks, embeds, and template comparisons
+- **Zero-dependency checks in CI** — syntax check, template validator, `index.html` ↔ script wiring check, and a headless-Chrome UI smoke test run on every push
 
 ## Quick Start
 
@@ -66,22 +71,22 @@ No GitHub? Drop the folder on any static host or intranet share — `index.html`
 
 ## Templates
 
-| Template | Layout | Use case |
-|---|---|---|
-| Generic Layered | layered | Generic layered reference (capability demo) |
-| Overall Architecture | layered | User → Application → Platform → Data → Infrastructure, with security/ops pillars |
-| Application Architecture | layered | Application systems and their functional modules |
-| Data Architecture | layered | Source → ODS → DWD → DWS → ADS → Service layering by subject domain |
-| Technology Architecture | layered | Access → Services → Middleware → Storage → Infrastructure |
-| Middle Platform | layered | Shared service centers (user / order / product / payment) + data platform + tech base |
-| Cloud Platform | layered | Access → Cloud management → SaaS → PaaS → IaaS → Infrastructure |
-| Microservices | layered | API gateway → Business services → Common components → Data layer (connection demos) |
-| Security (MLPS 2.0) | layered | Physical → Network → Boundary → Computing → Security management center |
-| Data Flow | flow | Source → Integration → ODS → DWD → DWS → ADS/Service (horizontal flow with labeled arrows) |
-| Service Call Chain | flow | Client → Gateway → Services → Data layer → Monitoring/Audit (call-chain flow) |
-| Event Stream | flow | Event source → Message platform → Stream processing → Sink storage (event-driven flow) |
+| Template | Layout | Palette | Use case |
+|---|---|---|---|
+| Generic Layered | layered | blue | Generic layered reference (capability demo) |
+| Overall Architecture | layered | slate | User → Application → Platform → Data → Infrastructure, with security/ops pillars |
+| Application Architecture | layered | forest | Application systems and their functional modules |
+| Data Architecture | layered | violet | Source → ODS → DWD → DWS → ADS → Service layering by subject domain |
+| Technology Architecture | layered | blue | Access → Services → Middleware → Storage → Infrastructure |
+| Middle Platform | layered | slate | Shared service centers (user / order / product / payment) + data platform + tech base |
+| Cloud Platform | layered | aqua | Access → Cloud management → SaaS → PaaS → IaaS → Infrastructure |
+| Microservices | layered | forest | API gateway → Business services → Common components → Data layer (connection demos) |
+| Security (MLPS 2.0) | layered | amber | Physical → Network → Boundary → Computing → Security management center |
+| Data Flow | flow | violet | Source → Integration → ODS → DWD → DWS → ADS/Service (horizontal flow with labeled arrows) |
+| Service Call Chain | flow | aqua | Client → Gateway → Services → Data layer → Monitoring/Audit (call-chain flow) |
+| Event Stream | flow | amber | Event source → Message platform → Stream processing → Sink storage (event-driven flow) |
 
-Templates are plain data in `templates.js` — copy the JSON structure to add your own.
+Templates are plain data in `templates.js` — copy the JSON structure to add your own. Optional metadata: `desc` (one-line use case), `tags` (2–3 scenario tags) and `scheme` (its palette); their colors are authored in the classic-blue ramp and mapped to the template's palette on load, so new templates don't have to hand-pick six shades.
 
 ## Export
 
@@ -101,10 +106,25 @@ Templates are plain data in `templates.js` — copy the JSON structure to add yo
 ├─ editor-core.js       # State, node lookup, data versioning (migrateDiagram)
 ├─ editor-tree.js       # Structure tree: render, node ops, quick-add, copy/paste, context menu
 ├─ editor-render.js     # Render engine: layered / flow
-├─ editor-ui.js         # Property panel, color schemes, export (SVG/PNG/HTML), zoom, events
+├─ editor-conn.js       # Layer connections: gutter UI, routing, draw.io export
+├─ editor-ui.js         # Property panel, color schemes, start page, export (SVG/PNG/HTML), zoom, events
 ├─ templates.js         # Built-in template library (plain data)
+├─ tools/               # Zero-dependency checkers (template rules, HTML ↔ script wiring)
+├─ tests/               # Headless-Chrome UI smoke test (skips itself when no browser is present)
+├─ .github/workflows/   # CI: static checks + UI smoke test on every push / PR
 ├─ docs/                # Public documentation (roadmap, usage guide)
 └─ LICENSE              # Apache-2.0
+```
+
+## Development
+
+No build step and no dependencies — the same four checks run locally and in CI (`.github/workflows/ci.yml`):
+
+```bash
+node --check editor-ui.js         # repeat for templates.js and the other editor-*.js files
+node tools/check-templates.mjs    # template structure + metadata rules (desc / tags / scheme)
+node tools/check-html.mjs         # every getElementById target really exists in index.html
+node tests/ui-smoke.mjs           # headless Chrome smoke test (skips when no browser; set CHROME_BIN)
 ```
 
 ## Documentation
@@ -114,7 +134,7 @@ Templates are plain data in `templates.js` — copy the JSON structure to add yo
 
 ## Contributing
 
-- **Templates**: add plain JSON to `templates.js` and open a PR — no build step involved
+- **Templates**: add plain JSON to `templates.js` and open a PR — no build step involved; `node tools/check-templates.mjs` must pass (CI runs it, plus the HTML wiring check and the UI smoke test)
 - **Bugs and feature requests**: open an issue (say whether it is a template request or an editor bug)
 - Roadmap decisions live in [docs/ROADMAP.md](docs/ROADMAP.md) — read it before starting bigger work
 

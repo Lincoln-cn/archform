@@ -159,13 +159,241 @@ function togglePreview() {
 }
 
 /* ================= 新建空白图 ================= */
-function newBlank() {
-  if (!confirm('新建空白图？当前内容将丢失（可先点"导出JSON"备份）。')) return;
+function startBlank() {
+  const hasContent = !!(diagram && (diagram.layers || []).length);
+  // 已有内容才问一句(首访/空图直接给新图,不打断从启动面板进入的流程)
+  if (hasContent && !confirm('新建空白图？当前内容将丢失（可先点"导出JSON"备份）。')) return;
   pushUndo();
   diagram = { schemaVersion: 2, id: uid(), title: '未命名架构图', subtitle: '', layout: 'layered', connections: [], showConnections: false, layers: [] };
   selectedId = null;
   applyThemeVars(COLOR_SCHEMES[0].vars);   // 空白图恢复默认配色
   persist(); render(); renderProps();
+}
+function newBlank() { startBlank(); }
+
+/* ================= 缩略图渲染会话(开始页与模板库共用) ================= */
+/* 两处都要「借画布把模板真渲染一遍」,靠 token / owner 保证互不打架:后来的接管,先走的作废。 */
+let thumbToken = 0;      // 令牌:换面板或关闭即作废未跑完的任务
+let thumbRestore = null; // 借用画布时的还原函数(关闭面板要先还原,再执行关闭后的动作)
+let thumbOwner = null;   // 当前借用画布的是谁:'start' | 'lib'
+function endThumbSession(owner) {
+  if (!thumbRestore && thumbOwner === null) return;   // 没有在跑的任务
+  if (owner && thumbOwner !== owner) return;          // 不是自己的任务,别去关别人的
+  thumbToken++;
+  if (thumbRestore) { const f = thumbRestore; thumbRestore = null; f(); }
+  thumbOwner = null;
+}
+
+/* ================= 启动面板(欢迎页:讲功能 + 新建空图 + 从模板创建) ================= */
+function openStartPanel() {
+  const el = document.getElementById('startPanel');
+  if (!el) return;
+  if (!el.hidden) return;   // 已经开着就不再重跑:缩略图任务正借用画布,重进会覆盖还原点
+  el.hidden = false;
+  fillStartPanel();
+}
+function closeStartPanel() {
+  const el = document.getElementById('startPanel');
+  if (!el || el.hidden) return;
+  endThumbSession('start');   // 停掉后台缩略图生成,并先把被临时替换的画布还原
+  el.hidden = true;
+}
+function fillStartPanel() {
+  const grid = document.getElementById('spGrid');
+  if (!grid) return;
+  const tpls = window.ARCH_TEMPLATES || {};
+  const keys = Object.keys(tpls);
+  const cnt = document.getElementById('spCount');
+  if (cnt) cnt.textContent = '共 ' + keys.length + ' 个模板 · 缩略图由当前渲染引擎实时生成';
+  let html = '<button type="button" class="sp-tile sp-tile-blank" id="spBlankTile">' +
+               '<span class="sp-plus">+</span>' +
+               '<span class="sp-blank-t">空白图</span>' +
+               '<span class="sp-blank-d">从一层一张卡开始</span>' +
+             '</button>';
+  keys.forEach(k => {
+    const t = tpls[k] || {};
+    const lay = t.layout === 'flow' ? '横向流向' : '纵向分层';
+    const tags = (t.tags || []).map(x => '<i class="sp-tag">' + esc(x) + '</i>').join('');
+    html += '<button type="button" class="sp-tile" data-sp-tpl="' + esc(k) + '">' +
+              '<span class="sp-thumb" data-sp-thumb="' + esc(k) + '"><span class="sp-ph">生成预览…</span></span>' +
+              '<span class="sp-meta">' +
+                '<span class="sp-tile-title">' + esc(t.title || k) + '</span>' +
+                '<span class="sp-tile-desc">' + esc(t.desc || '（暂无说明）') + '</span>' +
+                '<span class="sp-tags"><i class="sp-tag lay">' + lay + '</i>' + tags + '</span>' +
+              '</span>' +
+            '</button>';
+  });
+  grid.innerHTML = html;
+  renderTemplateThumbs('start', keys, k => document.querySelector('[data-sp-thumb="' + k + '"]'));
+}
+/* 缩略图 = 真渲染一遍再缩下来:不存静态截图,改版式/配色后自动同步。
+   渲染期间借用 #captureArea(先藏起来,免得半透明遮罩后透出色块闪动),全部跑完还原用户当前图。
+   配色变量只挂到画布自己身上(:root 不动),并写进克隆件,这样已生成的缩略图不会被后续渲染带跑色。
+   owner 标明谁在借画布,hostOf(k) 返回该模板缩略图的挂载点,onShot(k,host) 供调用方缓存成品。 */
+function renderTemplateThumbs(owner, keys, hostOf, onShot) {
+  const cap = document.getElementById('captureArea');
+  if (!cap) return;
+  endThumbSession();                     // 上一轮还没还就先还掉,避免两个会话抢画布
+  const token = ++thumbToken;
+  thumbOwner = owner;
+  const savedD = diagram, savedSel = selectedId;
+  const savedFit = currentFit, savedZoom = zoom;
+  const savedVars = (diagram && diagram.theme && diagram.theme.vars) || COLOR_SCHEMES[0].vars;
+  const savedVis = cap.style.visibility;
+  let capVars = null;                       // 当前挂在画布上的配色变量,换模板/还原时要摘掉
+  cap.style.visibility = 'hidden';
+  const dropCapVars = () => {
+    if (capVars) { clearThemeVars(cap, capVars); capVars = null; }
+  };
+  const restore = () => {
+    dropCapVars();
+    cap.style.visibility = savedVis;
+    diagram = savedD; selectedId = savedSel;
+    applyThemeVars(savedVars);
+    render();
+    applyZoom(savedFit || savedZoom, true);
+    renderProps();
+  };
+  thumbRestore = restore;
+  let i = 0;
+  const step = () => {
+    if (token !== thumbToken) { thumbRestore = null; return; }        // 面板已关:还原交给关闭方
+    if (i >= keys.length) { thumbRestore = null; thumbOwner = null; restore(); return; }
+    const k = keys[i++];
+    const host = hostOf(k);
+    if (!host) { requestAnimationFrame(step); return; }               // 格子已被筛掉,跳过
+    try {
+      const tpl = window.ARCH_TEMPLATES[k];
+      const d = migrateDiagram(JSON.parse(JSON.stringify(tpl)));
+      if (d && !d.error) {
+        diagram = d; selectedId = null;
+        dropCapVars();
+        let vars = savedVars;                                   // 模板没写 scheme 时沿用当前配色
+        if (tpl.scheme) {
+          applyTemplateScheme(tpl.scheme, { skipVars: true });
+          const s = COLOR_SCHEMES.find(x => x.id === tpl.scheme);
+          if (s) vars = s.vars;
+        }
+        applyThemeVars(vars, cap); capVars = vars;
+        render();
+        const arch = cap.querySelector('.arch');
+        if (arch) {
+          const clone = arch.cloneNode(true);
+          clone.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));   // 避免与画布重复 id
+          const w = arch.offsetWidth || 1600;
+          clone.className = 'arch sp-shot';
+          clone.style.width = w + 'px';
+          clone.style.transform = 'scale(' + (host.clientWidth || 240) / w + ')';
+          applyThemeVars(vars, clone);                          // 配色固化进克隆件,脱离画布后仍自洽
+          host.innerHTML = '';
+          host.appendChild(clone);
+          if (onShot) onShot(k, host);
+        }
+      }
+    } catch (e) {
+      host.innerHTML = '<span class="sp-ph">预览生成失败</span>';
+    }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/* ================= 模板库(搜索 + 板式/场景筛选 + 实时缩略图) ================= */
+/* 与开始页共用 .sp-tile 与缩略图渲染,只是多了搜索与筛选;模板涨到几十个也只是滚动 + 搜索。 */
+let tlFilter = { q: '', lay: 'all', tag: '' };
+const tlThumbs = new Map();   // key -> 已渲染的缩略图 HTML:切换筛选时直接复用,不重渲染
+
+function tplLibMatches(key) {
+  const t = (window.ARCH_TEMPLATES || {})[key] || {};
+  const lay = t.layout === 'flow' ? 'flow' : 'layered';
+  if (tlFilter.lay !== 'all' && lay !== tlFilter.lay) return false;
+  if (tlFilter.tag && (t.tags || []).indexOf(tlFilter.tag) < 0) return false;
+  const q = tlFilter.q.trim().toLowerCase();
+  if (!q) return true;
+  const hay = (t.title || '') + ' ' + (t.desc || '') + ' ' + (t.tags || []).join(' ') + ' ' + key;
+  return hay.toLowerCase().indexOf(q) >= 0;
+}
+
+function fillTplLib() {
+  const tpls = window.ARCH_TEMPLATES || {};
+  const tags = [];
+  Object.keys(tpls).forEach(k => (tpls[k].tags || []).forEach(t => { if (tags.indexOf(t) < 0) tags.push(t); }));
+  const box = document.getElementById('tlTags');
+  if (box) {
+    box.classList.remove('open');
+    box.innerHTML = tags.map(t =>
+      '<button type="button" class="tl-tag" data-tl-tag="' + esc(t) + '">' + esc(t) + '</button>').join('');
+    const more = document.getElementById('tlMore');
+    // 先露两行,标签一多(模板变多时)就折叠,给个展开开关,别让标签行吃掉整屏
+    if (more) { more.hidden = box.scrollHeight <= box.clientHeight + 2; more.textContent = '更多标签'; }
+  }
+  renderTplLib();
+}
+
+function renderTplLib() {
+  const grid = document.getElementById('tlGrid');
+  if (!grid) return;
+  const tpls = window.ARCH_TEMPLATES || {};
+  const all = Object.keys(tpls);
+  const keys = all.filter(tplLibMatches);
+  const cnt = document.getElementById('tlCount');
+  if (cnt) cnt.textContent = keys.length === all.length ? String(all.length) : keys.length + ' / ' + all.length;
+  if (!keys.length) {
+    grid.innerHTML = '<div class="tl-empty">没有匹配的模板：换个关键词，或点上方「全部」看所有模板</div>';
+    return;
+  }
+  grid.innerHTML = keys.map(k => {
+    const t = tpls[k] || {};
+    const lay = t.layout === 'flow' ? '横向流向' : '纵向分层';
+    const tags = (t.tags || []).map(x => '<i class="sp-tag">' + esc(x) + '</i>').join('');
+    return '<button type="button" class="sp-tile" data-tl-tpl="' + esc(k) + '">' +
+             '<span class="sp-thumb" data-tl-thumb="' + esc(k) + '">' +
+               (tlThumbs.get(k) || '<span class="sp-ph">生成预览…</span>') +
+             '</span>' +
+             '<span class="sp-meta">' +
+               '<span class="sp-tile-title">' + esc(t.title || k) + '</span>' +
+               '<span class="sp-tile-desc">' + esc(t.desc || '（暂无说明）') + '</span>' +
+               '<span class="sp-tags"><i class="sp-tag lay">' + lay + '</i>' + tags + '</span>' +
+             '</span>' +
+           '</button>';
+  }).join('');
+  const missing = keys.filter(k => !tlThumbs.has(k));
+  if (missing.length) {
+    renderTemplateThumbs('lib', missing,
+      k => grid.querySelector('[data-tl-thumb="' + k + '"]'),
+      (k, host) => { tlThumbs.set(k, host.innerHTML); });   // 成品缓存:再切换筛选不用重渲染
+  }
+}
+
+function openTplLib() {
+  const el = document.getElementById('tplLib');
+  if (!el) return;
+  if (!el.hidden) return;
+  const spEl = document.getElementById('startPanel');
+  if (spEl && !spEl.hidden) closeStartPanel();   // 两个浮层不叠着开(开始页里再点「模板」时)
+  tlFilter = { q: '', lay: 'all', tag: '' };
+  const s = document.getElementById('tlSearch');
+  if (s) s.value = '';
+  document.querySelectorAll('#tlSeg button').forEach(b => b.classList.toggle('on', b.getAttribute('data-lay') === 'all'));
+  el.hidden = false;
+  fillTplLib();
+  if (s) { try { s.focus(); } catch (e) { } }
+}
+
+function closeTplLib() {
+  const el = document.getElementById('tplLib');
+  if (!el || el.hidden) return;
+  endThumbSession('lib');   // 停掉后台缩略图生成,并先把被临时替换的画布还原
+  el.hidden = true;
+}
+
+function pickTemplateFromLib(key) {
+  if (!key || !(window.ARCH_TEMPLATES || {})[key]) return;
+  const hasContent = !!(diagram && (diagram.layers || []).length);
+  if (hasContent && !confirm('从模板新建会替换当前图，确定继续？（可用 Ctrl+Z 撤销）')) return;
+  // 顺序同开始页:先关(关闭时会还原被借用的画布),再加载新模板;反过来新图会被还原覆盖
+  closeTplLib();
+  loadTemplateByKey(key, { useTemplateScheme: true });
 }
 
 /* ================= 从文本生成图 ================= */
@@ -818,38 +1046,47 @@ async function exportPng() {
   }
 }
 
-/* ================= 模板菜单 ================= */
-function fillTplMenu() {
-  const tpls = (window.ARCH_TEMPLATES || {});
-  const groups = { flow: [], layered: [] };
-  Object.keys(tpls).forEach(k => {
-    const t = tpls[k];
-    const lt = (t.layout === 'flow') ? 'flow' : 'layered';
-    groups[lt].push({ key: k, title: t.title || k });
+/* 模板自带配色:模板数据统一按「经典蓝」色阶书写,加载时按档位映射到目标色阶。
+   只改内存(diagram.theme / 各色值),不落盘不渲染,由调用方决定后续动作。
+   opts.skipVars:调用方自己把配色变量挂到局部元素上(开始页/模板库缩略图),不要动 :root。 */
+const TEMPLATE_BASE_SCHEME = 'blue';
+function applyTemplateScheme(key, opts) {
+  const target = COLOR_SCHEMES.find(s => s.id === key);
+  if (!target || !diagram) return false;
+  const base = COLOR_SCHEMES.find(s => s.id === TEMPLATE_BASE_SCHEME) || COLOR_SCHEMES[0];
+  const map = c => {
+    if (!c) return c;
+    const s = String(c).toLowerCase();
+    let i = base.colors.findIndex(x => String(x).toLowerCase() === s);
+    if (i < 0) i = nearestRampIndex(c, base.colors);
+    return i >= 0 ? target.colors[i] : c;
+  };
+  (diagram.layers || []).forEach(l => {
+    if (l.bandColor) l.bandColor = map(l.bandColor);
+    (l.groups || []).forEach(g => (g.blocks || []).forEach(b => { if (b.color) b.color = map(b.color); }));
   });
-  const catNames = { flow: '横向布局', layered: '纵向布局' };
-  let html = '';
-  ['flow', 'layered'].forEach(cat => {
-    const arr = groups[cat];
-    if (!arr.length) return;
-    html += '<span class="tpl-cat">' + catNames[cat] + '</span>';
-    arr.forEach(item => {
-      html += '<button type="button" data-tpl-key="' + esc(item.key) + '">' + esc(item.title) + '</button>';
-    });
-  });
-  const el = document.getElementById('menu-tpl');
-  if (el) el.innerHTML = html;
+  (diagram.sidebar || []).forEach(s => { if (s.color) s.color = map(s.color); });
+  (diagram.legend || []).forEach(x => { if (x.color) x.color = map(x.color); });
+  diagram.theme = { id: target.id, custom: null, vars: Object.assign({}, target.vars) };
+  if (!(opts && opts.skipVars)) applyThemeVars(diagram.theme.vars);
+  return true;
 }
-function loadTemplateByKey(key) {
+/* opts.useTemplateScheme:从启动面板/深链「创建新图」→ 用模板自带配色;
+   不传(编辑器内切换模板)→ 保留当前配色(沿用 v0.2.1 行为) */
+function loadTemplateByKey(key, opts) {
   const tpls = window.ARCH_TEMPLATES || {};
   if (!key || !tpls[key]) return;
   pushUndo();
   const migrated = migrateDiagram(JSON.parse(JSON.stringify(tpls[key])));
   if (!migrated || migrated.error) { alert(migrated ? migrated.error : '模板数据无效'); return; }
+  const useTplScheme = !!(opts && opts.useTemplateScheme) && !!tpls[key].scheme;
   const prevTheme = diagram && diagram.theme;
   diagram = migrated;
   selectedId = null;
-  if (prevTheme) {
+  if (useTplScheme) {
+    applyTemplateScheme(tpls[key].scheme);
+    persist(); render(); renderProps();
+  } else if (prevTheme) {
     _undoSuppressed = true;
     applyScheme(prevTheme.custom
       ? { id: '__custom', custom: true, colors: prevTheme.custom, vars: prevTheme.vars }
@@ -891,9 +1128,13 @@ function currentScheme() {
   if (t.custom) return { id: '__custom', name: '自定义', custom: true, colors: t.custom, vars: t.vars };
   return COLOR_SCHEMES.find(s => s.id === t.id) || COLOR_SCHEMES[0];
 }
-function applyThemeVars(vars) {
-  const root = document.documentElement.style;
+function applyThemeVars(vars, el) {
+  const root = (el || document.documentElement).style;
   Object.entries(vars || {}).forEach(([k, v]) => root.setProperty(k, v));
+}
+function clearThemeVars(el, vars) {
+  const st = (el || document.documentElement).style;
+  Object.keys(vars || {}).forEach(k => st.removeProperty(k));
 }
 function applyScheme(scheme) {
   if (!diagram) return;
@@ -958,6 +1199,64 @@ function applyCustomScheme() {
 /* ================= 事件绑定 ================= */
 function bindEvents() {
   // 工具栏
+  document.getElementById('btnStart').addEventListener('click', openStartPanel);
+  // 启动面板:快速开始 + 模板格子(事件委托,格子是动态生成的)
+  const sp = document.getElementById('startPanel');
+  if (sp) {
+    sp.addEventListener('click', e => {
+      if (e.target === sp) { closeStartPanel(); return; }               // 点遮罩关闭
+      if (e.target.closest('#spClose')) { closeStartPanel(); return; }
+      if (e.target.closest('#spBlank') || e.target.closest('#spBlankTile')) {
+        closeStartPanel(); startBlank(); return;
+      }
+      if (e.target.closest('#spTextGen')) { closeStartPanel(); showTextGenModal(); return; }
+      if (e.target.closest('#spImport')) { closeStartPanel(); loadJsonFile(); return; }
+      const tile = e.target.closest('[data-sp-tpl]');
+      if (tile) {
+        // 关闭面板时会先把画布还原成旧图,所以顺序必须是「先关、再加载新模板」,反过来新图会被还原覆盖
+        const key = tile.getAttribute('data-sp-tpl');
+        closeStartPanel();
+        loadTemplateByKey(key, { useTemplateScheme: true });
+      }
+    });
+  }
+  // 模板库:搜索 / 板式 / 场景标签 / 选模板(事件委托,格子是动态生成的)
+  const btnTplLib = document.getElementById('btnTplLib');
+  if (btnTplLib) btnTplLib.addEventListener('click', openTplLib);
+  const tl = document.getElementById('tplLib');
+  if (tl) {
+    tl.addEventListener('click', e => {
+      if (e.target === tl || e.target.closest('#tlClose')) { closeTplLib(); return; }   // 点遮罩/关闭
+      if (e.target.closest('#tlMore')) {                                               // 标签折叠/展开
+        const list = document.getElementById('tlTags');
+        const more = document.getElementById('tlMore');
+        if (list) {
+          const open = list.classList.toggle('open');
+          if (more) more.textContent = open ? '收起标签' : '更多标签';
+        }
+        return;
+      }
+      const layBtn = e.target.closest('#tlSeg [data-lay]');
+      if (layBtn) {
+        tlFilter.lay = layBtn.getAttribute('data-lay');
+        document.querySelectorAll('#tlSeg button').forEach(b => b.classList.toggle('on', b === layBtn));
+        renderTplLib();
+        return;
+      }
+      const tagBtn = e.target.closest('[data-tl-tag]');
+      if (tagBtn) {
+        const t = tagBtn.getAttribute('data-tl-tag');
+        tlFilter.tag = tlFilter.tag === t ? '' : t;              // 再点一次取消该标签
+        document.querySelectorAll('[data-tl-tag]').forEach(b => b.classList.toggle('on', b.getAttribute('data-tl-tag') === tlFilter.tag));
+        renderTplLib();
+        return;
+      }
+      const tile = e.target.closest('[data-tl-tpl]');
+      if (tile) pickTemplateFromLib(tile.getAttribute('data-tl-tpl'));
+    });
+    const tlSearch = document.getElementById('tlSearch');
+    if (tlSearch) tlSearch.addEventListener('input', e => { tlFilter.q = e.target.value; renderTplLib(); });
+  }
   document.getElementById('btnAddLayer').addEventListener('click', () => {
     if (!diagram) diagram = newDiagram();
     pushUndo();
@@ -1018,6 +1317,12 @@ function bindEvents() {
   document.getElementById('btnFit').addEventListener('click', zoomFit);
   // 右侧通栏宽度随条目数量自动调整(竖排条目,无需拖拽;旧数据 sidebarWidth 字段保留但不再参与布局)
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      const tlEl = document.getElementById('tplLib');
+      if (tlEl && !tlEl.hidden) { closeTplLib(); return; }
+      const sp = document.getElementById('startPanel');
+      if (sp && !sp.hidden) { closeStartPanel(); return; }
+    }
     if (e.key === 'Escape' && previewing) togglePreview();
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
@@ -1032,7 +1337,6 @@ function bindEvents() {
       closeMenus();
       if (!wasOpen) {
         if (btn.getAttribute('data-menu') === 'scheme') fillSchemeMenu();   // 打开配色菜单时刷新
-        if (btn.getAttribute('data-menu') === 'tpl') fillTplMenu();         // 打开模板菜单时刷新
         drop.classList.add('open');
       }
     });
@@ -1056,8 +1360,6 @@ function bindEvents() {
   // 菜单命令分发
   document.querySelectorAll('.menu-drop').forEach(drop => {
     drop.addEventListener('click', e => {
-      const tk = e.target.closest('[data-tpl-key]');
-      if (tk) { loadTemplateByKey(tk.getAttribute('data-tpl-key')); closeMenus(); return; }
       const item = e.target.closest('[data-cmd]');
       if (!item) return;
       const cmd = item.getAttribute('data-cmd');
@@ -1179,9 +1481,11 @@ function init() {
     ARCH_CSS = st.slice(st.lastIndexOf('/*', sMark), eMark);
   }
   bindEvents();
+  let hadSaved = false;   // 本地有没有存档:首访用来决定是否自动打开开始页
   try {
     const saved = localStorage.getItem(LS_KEY);
     if (saved) {
+      hadSaved = true;
       const migrated = migrateDiagram(JSON.parse(saved));
       if (migrated && !migrated.error) { diagram = migrated; }
       else if (migrated && migrated.error) { alert(migrated.error); }
@@ -1192,12 +1496,29 @@ function init() {
     const migrated = tpls['logical'] ? migrateDiagram(JSON.parse(JSON.stringify(tpls['logical']))) : null;
     diagram = migrated && !migrated.error ? migrated : newDiagram();
   }
+  /* 深链:?tpl=<模板key> 以该模板「创建」新图(带模板自带配色,不落盘);
+     ?preview=1 直接进预览态。供启动面板、模板对比页、书签直达使用。 */
+  const qs = new URLSearchParams(location.search);
+  const deepKey = qs.get('tpl');
+  if (deepKey && (window.ARCH_TEMPLATES || {})[deepKey]) {
+    const t = migrateDiagram(JSON.parse(JSON.stringify(window.ARCH_TEMPLATES[deepKey])));
+    if (t && !t.error) {
+      diagram = t;
+      selectedId = null;
+      if (window.ARCH_TEMPLATES[deepKey].scheme) applyTemplateScheme(window.ARCH_TEMPLATES[deepKey].scheme);
+    }
+  }
   // 恢复配色主题（CSS 变量随图持久化，刷新后保持一致）
   const th = diagram.theme && diagram.theme.vars;
   if (th) applyThemeVars(th);
   render();
   zoomFit();
   updateConnBtn();
+  if (qs.get('preview') === '1') togglePreview();
+  // 深链:?start=1 强制打开开始页(文档/书签里「从模板创建」的入口)
+  if (qs.get('start') === '1') openStartPanel();
+  // 首次访问(本地无存档、非深链)自动打开开始页:先讲清楚这工具怎么用,再选模板动手
+  else if (!hadSaved && !deepKey) openStartPanel();
 }
 /* 导出 HTML 时把当前主题变量写进样式 */
 function currentThemeCss() {

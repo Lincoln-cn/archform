@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>ArchForm 模板配色试点对比</title>
+<style>
+  :root{--ink:#1f2d3d;--muted:#5c6b7a;--line:#dbe2ea}
+  body{margin:0;padding:20px 24px 40px;background:#eef1f5;color:var(--ink);
+       font:14px/1.7 "Microsoft YaHei","PingFang SC",Arial,sans-serif}
+  h1{font-size:18px;margin:0 0 4px}
+  .lead{color:var(--muted);margin:0 0 20px;font-size:13px;max-width:900px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:18px}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .p-head{padding:10px 14px 8px;border-bottom:1px solid var(--line)}
+  .p-title{font-weight:700;font-size:15px}
+  .p-desc{color:var(--muted);font-size:12px;margin-top:2px}
+  .p-tags{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .tag{background:#eef4fb;color:#2b5d8c;border-radius:10px;padding:1px 8px;font-size:11px}
+  .scheme{margin-left:auto;font-size:11px;color:var(--muted)}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+  iframe{display:block;width:100%;height:520px;border:0;background:#fff}
+  .p-foot{padding:6px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+  a{color:#2379bd}
+  code{background:#f1f4f8;border-radius:3px;padding:0 4px;font-size:12px}
+</style>
+</head>
+<body>
+<h1>模板配色试点 · 对照页</h1>
+<p class="lead">
+  下面四个 iframe 都指向同一个 <code>index.html</code>，只是用 <code>?tpl=&lt;key&gt;&amp;preview=1</code> 深链直接打开某个模板并进入预览态。
+  前三个已写入 <code>scheme</code>（模板自带配色），第四个保持未改造的默认蓝，用来对照。
+  每个 iframe 里都是真实渲染，不是截图，所以看到的就是导出 PNG/SVG 的样子。
+</p>
+
+<div class="grid">
+  <div class="panel">
+    <div class="p-head">
+      <div class="p-title">通用分层架构 <span style="font-weight:400;color:#5c6b7a;font-size:12px">logical</span></div>
+      <div class="p-desc">入门示例:三层最小结构,先看懂层/分组/模块/条目怎么排</div>
+      <div class="p-tags"><span class="tag">入门</span><span class="tag">汇报</span><span class="scheme"><i class="dot" style="background:#2379bd"></i>经典蓝</span></div>
+    </div>
+    <iframe src="../index.html?tpl=logical&preview=1" loading="lazy" title="通用分层架构"></iframe>
+    <div class="p-foot"><a href="../index.html?tpl=logical" target="_blank" rel="noopener">在编辑器里打开 →</a></div>
+  </div>
+
+  <div class="panel">
+    <div class="p-head">
+      <div class="p-title">数据架构图 <span style="font-weight:400;color:#5c6b7a;font-size:12px">data</span></div>
+      <div class="p-desc">数据治理与数仓分层:从贴源到应用,把口径和数据服务摆在一张图上</div>
+      <div class="p-tags"><span class="tag">数据治理</span><span class="tag">数仓</span><span class="scheme"><i class="dot" style="background:#7c3aed"></i>紫罗兰</span></div>
+    </div>
+    <iframe src="../index.html?tpl=data&preview=1" loading="lazy" title="数据架构图"></iframe>
+    <div class="p-foot"><a href="../index.html?tpl=data" target="_blank" rel="noopener">在编辑器里打开 →</a></div>
+  </div>
+
+  <div class="panel">
+    <div class="p-head">
+      <div class="p-title">安全架构（等保 2.0） <span style="font-weight:400;color:#5c6b7a;font-size:12px">security</span></div>
+      <div class="p-desc">等保 2.0 五区:物理/网络/边界/计算/管理中心逐区落地</div>
+      <div class="p-tags"><span class="tag">等保合规</span><span class="tag">安全评审</span><span class="scheme"><i class="dot" style="background:#d97706"></i>暖橙</span></div>
+    </div>
+    <iframe src="../index.html?tpl=security&preview=1" loading="lazy" title="安全架构"></iframe>
+    <div class="p-foot"><a href="../index.html?tpl=security" target="_blank" rel="noopener">在编辑器里打开 →</a></div>
+  </div>
+
+  <div class="panel">
+    <div class="p-head">
+      <div class="p-title">系统总体架构图 <span style="font-weight:400;color:#5c6b7a;font-size:12px">overall · 未改造对照</span></div>
+      <div class="p-desc">还没写 scheme，所以仍是默认蓝 —— 12 个模板长得一样的根源就在这里</div>
+      <div class="p-tags"><span class="tag">对照</span><span class="scheme"><i class="dot" style="background:#2379bd"></i>默认</span></div>
+    </div>
+    <iframe src="../index.html?tpl=overall&preview=1" loading="lazy" title="系统总体架构图"></iframe>
+    <div class="p-foot"><a href="../index.html?tpl=overall" target="_blank" rel="noopener">在编辑器里打开 →</a></div>
+  </div>
+</div>
+</body>
+</html>

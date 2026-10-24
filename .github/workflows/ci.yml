@@ -1,0 +1,50 @@
+name: CI
+
+# 纯静态项目没有构建步骤,CI 只做三件事:
+#   1) 六个脚本过一遍 node --check（防语法错误）
+#   2) 模板数据校验（结构/元信息/配色档位,见 tools/check-templates.mjs）
+#   3) index.html 与脚本的 id 接线检查 + 真浏览器 UI 冒烟（Chrome headless + CDP）
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: 静态检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 语法检查（node --check）
+        run: |
+          set -e
+          for f in templates.js editor-core.js editor-tree.js editor-render.js editor-conn.js editor-ui.js; do
+            echo "· $f"
+            node --check "$f"
+          done
+      - name: 模板校验
+        run: node tools/check-templates.mjs
+      - name: 接线检查（index.html ↔ 脚本）
+        run: node tools/check-html.mjs
+
+  ui:
+    name: UI 冒烟（Chrome headless）
+    runs-on: ubuntu-latest
+    needs: static
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 确认浏览器可用
+        run: google-chrome --version || chromium --version
+      - name: 跑冒烟测试
+        run: node tests/ui-smoke.mjs

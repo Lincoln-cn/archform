@@ -285,6 +285,11 @@
   #toolbar button:hover{background:#3a4d63}
   #toolbar button.primary{background:#2379bd;border-color:#2379bd}
   #toolbar button.primary:hover{background:#1a5c94}
+  /* 顶栏按钮统一高度:菜单按钮带「▾」字形,行盒比纯文字按钮高 1px,不锁死会长短不齐 */
+  #toolbar > button,#toolbar .menu > button{
+    height:28px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;
+  }
+  #btnStart{min-width:66px}   /* 与「文件 ▾」等菜单按钮同宽,顶栏节奏统一 */
   /* GitHub 快速导航(纯文字链接,不加载任何外部资源) */
   #toolbar .tb-sep{width:1px;height:20px;background:#46586d;margin:0 2px}
   #toolbar .gh-link{
@@ -584,6 +589,95 @@
   .tree-ctx-menu button.danger{color:#e74c3c}
   .tree-ctx-menu button.danger:hover{background:#fdecea}
   .tree-ctx-menu hr{border:0;border-top:1px solid #e3e8ef;margin:4px 0}
+  /* ================= 启动面板(欢迎页:讲功能 + 新建 + 从模板创建) ================= */
+  #startPanel{
+    position:fixed;inset:0;z-index:700;background:rgba(15,30,45,.55);
+    display:flex;justify-content:center;align-items:flex-start;
+    padding:4vh 16px 16px;overflow:auto;
+  }
+  #startPanel[hidden]{display:none}
+  .sp-card{
+    position:relative;width:min(1120px,100%);max-height:92vh;display:flex;flex-direction:column;
+    background:#fff;border-radius:10px;box-shadow:0 24px 64px rgba(15,42,71,.32);overflow:hidden;
+  }
+  .sp-close{
+    position:absolute;right:12px;top:9px;border:0;background:none;color:#8a9fb5;
+    font-size:20px;line-height:1;cursor:pointer;padding:4px 7px;border-radius:4px;font-family:inherit;
+  }
+  .sp-close:hover{background:#f0f4f9;color:#1f2d3d}
+  .sp-head{padding:24px 30px 16px;background:linear-gradient(180deg,#f7fbff,#fff);border-bottom:1px solid #e8eef5}
+  .sp-brand{font-size:11.5px;font-weight:700;letter-spacing:.08em;color:#5a7a9a}
+  .sp-title{font-size:22px;font-weight:700;color:#12314e;margin-top:6px;line-height:1.35}
+  .sp-sub{font-size:13px;color:#5a7a9a;line-height:1.75;margin-top:8px;max-width:860px}
+  .sp-feats{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .sp-feat{font-size:12px;color:#1a5c94;background:#eef6fd;border:1px solid #d6e8f8;border-radius:20px;padding:3px 10px}
+  .sp-body{padding:16px 30px 6px;overflow:auto;flex:1 1 auto}
+  .sp-sec{display:flex;align-items:baseline;gap:10px;font-size:13px;font-weight:700;color:#1f2d3d;margin:6px 0 10px}
+  .sp-sec-hint{font-size:11.5px;font-weight:400;color:#8a9fb5}
+  .sp-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+  .sp-btn{border:1px solid #b8c6d6;background:#fff;border-radius:5px;padding:7px 16px;font-size:13px;color:#26384a;cursor:pointer;font-family:inherit}
+  .sp-btn:hover{background:#eef5fc;border-color:#2379bd;color:#1a5c94}
+  .sp-btn.primary{background:#2379bd;border-color:#2379bd;color:#fff}
+  .sp-btn.primary:hover{background:#1a5c94;color:#fff}
+  .sp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:14px;padding-bottom:16px}
+  .sp-tile{
+    display:flex;flex-direction:column;text-align:left;padding:0;overflow:hidden;font-family:inherit;
+    border:1px solid #dbe2ea;border-radius:7px;background:#fff;cursor:pointer;
+    transition:border-color .12s,box-shadow .12s;
+  }
+  .sp-tile:hover{border-color:#2379bd;box-shadow:0 6px 18px rgba(35,121,189,.18)}
+  .sp-thumb{display:block;height:122px;background:#f5f8fb;border-bottom:1px solid #eef2f7;overflow:hidden;position:relative}
+  .sp-thumb .sp-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#b6c6d6;font-size:11px}
+  .sp-thumb .sp-shot{position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none}
+  .sp-meta{display:block;padding:9px 11px 10px}
+  .sp-tile-title{display:block;font-size:13px;font-weight:700;color:#1f2d3d;line-height:1.4}
+  .sp-tile-desc{display:block;font-size:12px;color:#6b7c8d;line-height:1.6;margin-top:4px;min-height:38px}
+  .sp-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .sp-tag{font-style:normal;font-size:10.5px;color:#2b5d8c;background:#eef4fb;border-radius:8px;padding:1px 7px}
+  .sp-tag.lay{color:#0f7b57;background:#e8f7f1}
+  .sp-tile-blank{
+    justify-content:center;align-items:center;gap:5px;min-height:216px;
+    border-style:dashed;border-color:#c6d7e8;background:#fbfdff;color:#1a5c94;
+  }
+  .sp-tile-blank .sp-plus{font-size:26px;line-height:1;color:#8fb6d8}
+  .sp-tile-blank .sp-blank-t{font-size:13px;font-weight:700}
+  .sp-tile-blank .sp-blank-d{font-size:11.5px;color:#7d93a8}
+  .sp-foot{padding:10px 30px 14px;border-top:1px solid #eef2f7;font-size:11.5px;color:#8a9fb5;line-height:1.7}
+  /* ================= 模板库(搜索 + 板式/场景筛选 + 实时缩略图) ================= */
+  #tplLib{
+    position:fixed;inset:0;z-index:720;background:rgba(15,30,45,.55);
+    display:flex;justify-content:center;align-items:flex-start;
+    padding:4vh 16px 16px;overflow:auto;
+  }
+  #tplLib[hidden]{display:none}
+  .tl-card{
+    position:relative;width:min(1120px,100%);max-height:92vh;display:flex;flex-direction:column;
+    background:#fff;border-radius:10px;box-shadow:0 24px 64px rgba(15,42,71,.32);overflow:hidden;
+  }
+  .tl-card .sp-title{font-size:19px;margin-top:4px}
+  .tl-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 30px 10px}
+  .tl-search{
+    flex:1 1 240px;min-width:170px;height:28px;border:1px solid #cfdae6;border-radius:5px;
+    padding:0 10px;font-size:13px;font-family:inherit;color:#1f2d3d;background:#fff;
+  }
+  .tl-search:focus{outline:0;border-color:#2379bd;box-shadow:0 0 0 2px rgba(35,121,189,.14)}
+  .tl-seg{display:flex;border:1px solid #cfdae6;border-radius:5px;overflow:hidden}
+  .tl-seg button{border:0;height:28px;padding:0 12px;background:#fff;color:#41556b;font-size:12.5px;cursor:pointer;font-family:inherit}
+  .tl-seg button + button{border-left:1px solid #e3ebf3}
+  .tl-seg button:hover{background:#f2f8fd}
+  .tl-seg button.on{background:#2379bd;color:#fff}
+  .tl-tags{display:flex;align-items:flex-start;gap:8px;padding:0 30px}
+  .tl-taglist{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 auto;min-width:0;max-height:58px;overflow:hidden}
+  .tl-taglist.open{max-height:none}
+  .tl-tag{border:1px solid #d6e2ee;background:#f7fafd;border-radius:12px;padding:2px 10px;font-size:12px;color:#35516b;cursor:pointer;font-family:inherit}
+  .tl-tag:hover{border-color:#9dc2e0;color:#1a5c94}
+  .tl-tag.on{background:#e8f2fb;border-color:#2379bd;color:#1a5c94;font-weight:700}
+  .tl-more{
+    flex:0 0 auto;border:1px dashed #c8d8e8;background:#fff;border-radius:12px;
+    padding:2px 10px;font-size:12px;color:#5a7a9a;cursor:pointer;font-family:inherit;
+  }
+  .tl-more:hover{border-color:#9dc2e0;color:#1a5c94}
+  .tl-empty{grid-column:1/-1;padding:44px 0;text-align:center;color:#8a9fb5;font-size:13px}
 </style>
 <!-- ================= Google Analytics(GA4)统计(可选) =================
   默认关闭。启用方法:把下面 window.GA_MEASUREMENT_ID 改成你的 GA4 统计 ID(形如 G-XXXXXXXXXX)。
@@ -609,6 +703,7 @@
 <body>
 <div id="toolbar">
   <span class="tb-title">ArchForm · 架构表单</span>
+  <button type="button" id="btnStart" title="回到开始页：看功能说明、新建空图、从模板创建">开始</button>
   <div class="menu">
     <button type="button" class="menu-btn" data-menu="file">文件 ▾</button>
     <div class="menu-drop" id="menu-file">
@@ -653,10 +748,7 @@
       <button type="button" id="schemeReset" class="scheme-btn">恢复默认（经典蓝）</button>
     </div>
   </div>
-  <div class="menu">
-    <button type="button" class="menu-btn" data-menu="tpl">模板 ▾</button>
-    <div class="menu-drop" id="menu-tpl"></div>
-  </div>
+  <button type="button" id="btnTplLib" title="打开模板库：搜索、按板式与场景筛选，缩略图实时生成">模板</button>
   <span class="spacer"></span>
   <label>缩放</label>
   <input type="range" id="zoomRange" min="30" max="200" value="100" style="width:110px">
@@ -684,6 +776,69 @@
     <div class="panel-title">属性</div>
     <div id="props"></div>
   </aside>
+</div>
+
+<!-- ================= 启动面板 ================= -->
+<div id="startPanel" hidden>
+  <div class="sp-card" role="dialog" aria-modal="true" aria-label="开始">
+    <button type="button" class="sp-close" id="spClose" title="关闭（Esc）" aria-label="关闭">×</button>
+    <div class="sp-head">
+      <div class="sp-brand">ARCHFORM · 架构表单</div>
+      <div class="sp-title">架构图别拖框了，用「表单」写出来</div>
+      <div class="sp-sub">
+        层 → 分组 → 模块 → 条目，四级结构按顺序填；版式、配色、间距由工具统一排，
+        改文字不改版式。层与层之间可以拉连线，成品一键导出 PNG / SVG / 单文件 HTML / draw.io。
+      </div>
+      <div class="sp-feats">
+        <span class="sp-feat">结构化输入，自动排版</span>
+        <span class="sp-feat">6 套配色 + 自定义色阶</span>
+        <span class="sp-feat">导出的 .drawio 可继续编辑</span>
+        <span class="sp-feat">纯静态，数据只存在本机</span>
+      </div>
+    </div>
+    <div class="sp-body">
+      <div class="sp-sec">快速开始</div>
+      <div class="sp-actions">
+        <button type="button" class="sp-btn primary" id="spBlank">新建空白图</button>
+        <button type="button" class="sp-btn" id="spTextGen">从文本生成…</button>
+        <button type="button" class="sp-btn" id="spImport">导入 JSON…</button>
+      </div>
+      <div class="sp-sec">从模板开始 <span class="sp-sec-hint" id="spCount">缩略图由当前渲染引擎实时生成</span></div>
+      <div class="sp-grid" id="spGrid"></div>
+    </div>
+    <div class="sp-foot">
+      左侧「结构树」改结构、右侧「属性」改标题与配色 · 编辑器左上角「开始」随时回到这一页 ·
+      内容自动保存在本机浏览器，换电脑请用「导出JSON」
+    </div>
+  </div>
+</div>
+
+<!-- ================= 模板库(搜索 + 板式/场景筛选 + 实时缩略图) ================= -->
+<div id="tplLib" hidden>
+  <div class="tl-card" role="dialog" aria-modal="true" aria-label="模板库">
+    <button type="button" class="sp-close" id="tlClose" title="关闭（Esc）" aria-label="关闭">×</button>
+    <div class="sp-head">
+      <div class="sp-brand">ARCHFORM · 模板库</div>
+      <div class="sp-title">挑一个起点，再改成你的</div>
+      <div class="sp-sub">
+        共 <span id="tlCount">12</span> 个模板 · 缩略图由当前渲染引擎按模板自带配色实时生成 ·
+        选中的模板会新建一张图（当前图会被替换，可用 Ctrl+Z 撤销）
+      </div>
+    </div>
+    <div class="tl-bar">
+      <input type="search" id="tlSearch" class="tl-search" placeholder="搜索：数据、安全、微服务、流程…" autocomplete="off" aria-label="搜索模板">
+      <div class="tl-seg" id="tlSeg">
+        <button type="button" data-lay="all" class="on">全部</button>
+        <button type="button" data-lay="layered">纵向分层</button>
+        <button type="button" data-lay="flow">横向流向</button>
+      </div>
+    </div>
+    <div class="tl-tags">
+      <div class="tl-taglist" id="tlTags"></div>
+      <button type="button" class="tl-more" id="tlMore" hidden>更多标签</button>
+    </div>
+    <div class="sp-body"><div class="sp-grid" id="tlGrid"></div></div>
+  </div>
 </div>
 
 <script src="templates.js"></script>

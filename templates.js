@@ -10,6 +10,9 @@ window.ARCH_TEMPLATES = {
   "schemaVersion": 1,
   "title": "通用分层架构",
   "subtitle": "通用分层架构示例（层 → 分组 → 模块 → 功能条目）",
+  "desc": "入门示例：三层最小结构，先看懂层 / 分组 / 模块 / 条目怎么排",
+  "tags": ["入门", "汇报"],
+  "scheme": "blue",
   "layout": "layered",
   "legend": [
    { "id": "n2034", "color": "#2379bd", "title": "业务应用层" },
@@ -137,6 +140,9 @@ window.ARCH_TEMPLATES = {
   "schemaVersion": 1,
   "title": "系统总体架构图",
   "subtitle": "用户接入 → 业务应用 → 平台能力 → 数据资源 → 基础设施（安全 / 运维贯穿）",
+  "desc": "一张图讲清整个系统：接入、应用、平台、数据、基础设施，安全与运维贯穿",
+  "tags": ["总体规划", "汇报"],
+  "scheme": "slate",
   "layout": "layered",
   "sidebar": [
    { "id": "ov-s1", "title": "安全保障体系", "color": "#0e2a47", "items": ["安全管理制度", "等级保护合规", "应急响应预案", "安全审计追踪"] },
@@ -328,6 +334,9 @@ window.ARCH_TEMPLATES = {
   "schemaVersion": 1,
   "title": "应用架构图",
   "subtitle": "应用系统模块划分与功能组成（门户 → 核心应用 → 公共服务 → 基础支撑）",
+  "desc": "应用系统怎么切模块：门户、核心业务域、公共服务、基础支撑",
+  "tags": ["应用规划", "模块划分"],
+  "scheme": "forest",
   "layout": "layered",
   "sidebar": [
    { "id": "ap-s1", "title": "非功能要求", "color": "#1a5c94", "items": ["性能：核心交易响应 < 1 秒", "可用性：关键系统 99.9%", "安全：等保三级", "可维护性：统一日志与监控"] }
@@ -466,6 +475,9 @@ window.ARCH_TEMPLATES = {
   "schemaVersion": 1,
   "title": "数据架构图",
   "subtitle": "数据分层与主题域（数据源 → 贴源 → 明细 → 汇总 → 应用 → 服务）",
+  "desc": "数据治理与数仓分层：从贴源到应用，把口径和数据服务摆在一张图上",
+  "tags": ["数据治理", "数仓"],
+  "scheme": "violet",
   "layout": "layered",
   "sidebar": [
    { "id": "da-s1", "title": "数据治理体系", "color": "#081c33", "items": ["数据标准", "数据质量", "数据安全", "主数据管理", "元数据管理"] }
@@ -689,6 +701,9 @@ window.ARCH_TEMPLATES = {
   "schemaVersion": 1,
   "title": "技术架构图",
   "subtitle": "分层技术栈（接入 → 服务 → 中间件 → 存储 → 基础设施）",
+  "desc": "技术栈从接入到基础设施：网关、中间件、存储、运维监控怎么摆",
+  "tags": ["技术方案", "技术评审"],
+  "scheme": "blue",
   "layout": "layered",
   "sidebar": [
    { "id": "te-s1", "title": "技术标准与运维规范", "color": "#0e2a47", "items": ["编码规范", "接口规范", "版本规范", "上线流程", "故障预案"] }
@@ -881,6 +896,9 @@ window.ARCH_TEMPLATES = {
   "schemaVersion": 2,
   "title": "中台架构",
   "subtitle": "用户接入 → 业务应用 → 共享服务中心(业务中台) → 数据中台 → 技术底座",
+  "desc": "业务中台怎么搭：能力中心沉淀复用，前台快速组装、数据反哺",
+  "tags": ["中台建设", "能力复用"],
+  "scheme": "slate",
   "layout": "layered",
   "connections": [],
   "showConnections": false,
@@ -1059,6 +1077,9 @@ window.ARCH_TEMPLATES = {
   "schemaVersion": 2,
   "title": "云平台架构",
   "subtitle": "接入访问 → 云管理平台 → SaaS 应用 → PaaS 平台 → IaaS 资源 → 基础设施",
+  "desc": "云平台六层：接入、云管、SaaS、PaaS、IaaS、机房设施",
+  "tags": ["云平台", "上云方案"],
+  "scheme": "green",
   "layout": "layered",
   "connections": [],
   "showConnections": false,
@@ -1231,6 +1252,9 @@ window.ARCH_TEMPLATES = {
   "schemaVersion": 2,
   "title": "微服务架构",
   "subtitle": "接入层 → 服务层 → 公共组件层 → 数据层（含调用关系演示）",
+  "desc": "微服务拆分与调用关系：网关、业务服务、公共组件、数据层",
+  "tags": ["微服务", "服务拆分"],
+  "scheme": "forest",
   "layout": "layered",
   "connections": [
    { "id": "mi-c1", "from": "mi-2", "to": "mi-3", "label": "流量", "style": "solid" },
@@ -1363,6 +1387,9 @@ window.ARCH_TEMPLATES = {
   "schemaVersion": 2,
   "title": "安全架构（等保 2.0）",
   "subtitle": "安全物理环境 → 安全通信网络 → 安全区域边界 → 安全计算环境 → 安全管理中心",
+  "desc": "等保 2.0 五区：物理、网络、边界、计算、管理中心逐区落地",
+  "tags": ["等保合规", "安全评审"],
+  "scheme": "amber",
   "layout": "layered",
   "connections": [],
   "showConnections": false,
@@ -1534,6 +1561,9 @@ window.ARCH_TEMPLATES = {
   "id": "fd-1",
   "title": "数据流转·横向流向",
   "subtitle": "数据源 → 数据集成 → ODS 贴源 → DWD 明细 → DWS 汇总 → ADS/数据服务（层间箭头=流向,仅相邻列）",
+  "desc": "横向看数据怎么流：数据源、集成、贴源、明细、汇总、服务",
+  "tags": ["数据链路", "横向流向"],
+  "scheme": "violet",
   "layout": "flow",
   "connections": [
    { "id": "fd-c1", "from": "fd-2", "to": "fd-3", "label": "抽取", "style": "solid" },
@@ -1665,6 +1695,9 @@ window.ARCH_TEMPLATES = {
   "id": "fa-1",
   "title": "服务调用链路·横向流向",
   "subtitle": "客户端 → 接入层 → 服务层 → 数据层 → 监控审计（层间箭头=调用链,仅相邻列）",
+  "desc": "横向看一次调用怎么走：客户端、接入、服务、存储、监控审计",
+  "tags": ["调用链路", "横向流向"],
+  "scheme": "green",
   "layout": "flow",
   "connections": [
    { "id": "fa-c1", "from": "fa-2", "to": "fa-3", "label": "路由", "style": "solid" },
@@ -1780,6 +1813,9 @@ window.ARCH_TEMPLATES = {
   "id": "fe-1",
   "title": "事件流·横向流向",
   "subtitle": "事件源 → 消息平台 → 实时计算 → 落地存储（层间箭头=事件流向,仅相邻列）",
+  "desc": "横向看事件流：事件生产、消息平台、实时计算、落地存储",
+  "tags": ["事件驱动", "横向流向"],
+  "scheme": "amber",
   "layout": "flow",
   "connections": [
    { "id": "fe-c1", "from": "fe-2", "to": "fe-3", "label": "发布", "style": "solid" },
