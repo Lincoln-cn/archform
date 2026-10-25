@@ -1,59 +1,54 @@
 /* ================= 属性面板 ================= */
+/* 面板字段全部来自 editor-core.js 的 NODE_TYPES[type].fields,
+   这里只负责把「字段描述」画成控件 —— 加一种节点类型/布局专属字段不用改这个文件。 */
 function renderProps() {
   const box = document.getElementById('props');
   if (!selectedId || !diagram) { box.innerHTML = '<div class="empty-tip">选中左侧结构树节点或画布模块进行编辑</div>'; return; }
   const node = findNode(selectedId);
   if (!node) { box.innerHTML = ''; return; }
   const t = nodeType(node);
-  let h = '';
-  if (t === 'diagram') {
-    h += field('title', '图标题', node.title);
-    h += field('subtitle', '副标题（可空）', node.subtitle);
-    h += selField('layout', '布局范式', node.layout,
-      [['layered','多层横向'],['flow','横向流向']]);
-  } else if (t === 'layer') {
-    h += field('name', '层名称', node.name);
-    h += colorPicker('bandColor', '竖条颜色', node.bandColor);
-    const isAuto = node.autoStat !== false;
-    h += '<div class="prop-field"><label><input type="checkbox" data-k="autoStat"' +
-         (isAuto ? ' checked' : '') + '> 自动计算统计</label></div>';
-    if (!isAuto) h += field('stat', '层统计文字', node.stat);
-    h += selField('cols', '分组列数', String(node.cols || 3), [['3','3列'],['2','2列'],['1','1列']]);
-    /* 层间连线:入口改为「以本层为起点」直接打开编辑面板(面板里也能改任意层对) */
-    h += '<div class="prop-field"><button type="button" class="ce-open" data-open-conn="' + node.id + '">编辑层间连线…</button></div>';
-  } else if (t === 'group') {
-    h += field('title', '分组标题', node.title);
-  } else if (t === 'block') {
-    const inSidebar = findParent(node.id) && findParent(node.id).id === SIDEBAR_ROOT.id;
-    h += field('title', inSidebar ? '体系名称' : '模块名称', node.title);
-    if (inSidebar) {
-      h += colorPicker('color', '竖条颜色', node.color);
-      h += '<div class="prop-group"><div class="pg-title">体系说明条目</div>' + chipEditor('items') + '</div>';
-    } else {
-      h += field('sub', '副标题（可空）', node.sub);
-      h += field('span', '跨列（1=正常，2=整行）', String(node.span || 1));
-      h += '<div class="prop-group"><div class="pg-title">条目列表</div>' + chipEditor('items') + '</div>';
-    }
-  } else if (t === 'container') {
-    if (node.id === SIDEBAR_ROOT.id) {
-      h += '<div class="prop-group"><div class="pg-title">右侧通栏（体系说明）</div>' +
-           '<div class="hint">点击结构树中"右侧通栏"行上的 <b>+</b> 新增体系；选中体系后可编辑名称与说明条目。</div></div>';
-    } else if (node.id === LEGEND_ROOT.id) {
-      h += '<div class="prop-group"><div class="pg-title">底部图例通栏</div>' +
-           '<div class="hint">点击结构树中"底部图例"行上的 <b>+</b> 新增图例项；选中图例项后可编辑色块颜色与描述文字。</div></div>';
-    }
-  } else if (t === 'legend') {
-    h += colorPicker('color', '色块颜色', node.color);
-    h += field('title', '图例描述', node.title);
-  } else if (t === 'section') {
-    h += field('title', '标题', node.title);
-  }
-  box.innerHTML = h;
+  const parent = findParent(node.id);
+  const ctx = {
+    type: t,
+    layout: layoutOf(diagram).id,
+    inSidebar: !!(parent && parent.id === SIDEBAR_ROOT.id),
+  };
+  box.innerHTML = nodeFieldsOf(t, node, ctx).map(f => propFieldHtml(f, node, ctx)).join('');
 }
 
-function field(key, label, val) {
+/* 一个字段 → 一个控件（kind 的含义见 editor-core.js 注册表注释） */
+function propFieldHtml(f, node, ctx) {
+  const label = typeof f.label === 'function' ? f.label(node, ctx) : f.label;
+  const group = typeof f.group === 'function' ? f.group(node, ctx) : f.group;
+  const val = f.value ? f.value(node, ctx) : node[f.k];
+  switch (f.kind) {
+    case 'text':
+      return field(f.k, label, val, f);
+    case 'color':
+      return colorPicker(f.k, label, val);
+    case 'select':
+      return selField(f.k, label, val, typeof f.options === 'function' ? f.options(node, ctx) : f.options);
+    case 'check':
+      return '<div class="prop-field"><label><input type="checkbox" data-k="' + f.k + '"' +
+        (val ? ' checked' : '') + '> ' + label + '</label></div>';
+    case 'chips':
+      return '<div class="prop-group"><div class="pg-title">' + group + '</div>' + chipEditor(f.k) + '</div>';
+    case 'button':
+      return '<div class="prop-field"><button type="button" class="' + (f.cls || '') + '" ' +
+        f.attr + '="' + esc(f.attrValue ? f.attrValue(node, ctx) : '') + '">' + label + '</button></div>';
+    case 'hint':
+      return '<div class="prop-group"><div class="pg-title">' + group + '</div>' +
+        '<div class="hint">' + f.html + '</div></div>';
+    default:
+      return '';
+  }
+}
+
+function field(key, label, val, f) {
+  /* data-list="a.b.c" 表示写进嵌套路径（逗号分隔的数组），用于布局专属数据如 ext.table.columns */
+  const list = f && f.list ? ' data-list="' + f.list + '"' : '';
   return '<div class="prop-field"><label>' + label + '</label>' +
-    '<input type="text" value="' + esc(val ?? '') + '" data-k="' + key + '"></div>';
+    '<input type="text" value="' + esc(val ?? '') + '" data-k="' + key + '"' + list + '></div>';
 }
 /* 竖条颜色选择器：预置色块 + 自定义取色器 */
 function colorPicker(field, label, val) {
@@ -164,38 +159,109 @@ function startBlank() {
   // 已有内容才问一句(首访/空图直接给新图,不打断从启动面板进入的流程)
   if (hasContent && !confirm('新建空白图？当前内容将丢失（可先点"导出JSON"备份）。')) return;
   pushUndo();
-  diagram = { schemaVersion: 2, id: uid(), title: '未命名架构图', subtitle: '', layout: 'layered', connections: [], showConnections: false, layers: [] };
+  diagram = { schemaVersion: 2, id: uid(), title: '未命名架构图', subtitle: '', layout: DEFAULT_LAYOUT, ext: {}, connections: [], showConnections: false, layers: [] };
   selectedId = null;
   applyThemeVars(COLOR_SCHEMES[0].vars);   // 空白图恢复默认配色
   persist(); render(); renderProps();
 }
 function newBlank() { startBlank(); }
 
-/* ================= 缩略图渲染会话(开始页与模板库共用) ================= */
-/* 两处都要「借画布把模板真渲染一遍」,靠 token / owner 保证互不打架:后来的接管,先走的作废。 */
-let thumbToken = 0;      // 令牌:换面板或关闭即作废未跑完的任务
-let thumbRestore = null; // 借用画布时的还原函数(关闭面板要先还原,再执行关闭后的动作)
-let thumbOwner = null;   // 当前借用画布的是谁:'start' | 'lib'
+/* ================= 缩略图渲染(开始页与模板库共用) ================= */
+/* 做法:用 buildArchHtml 在离屏容器里把 .arch 拼出来,直接塞进格子再等比缩下来。
+   不借真实画布 —— 于是不必渲染整棵树/缩放/连线,既不会闪,也不会改动用户当前那张图。
+   配色变量写在缩略图自己身上(:root 不动)。
+   缓存按「面板 + 模板」分开存:开始页和模板库各留一份,省得两个面板互相偷节点
+   (偷来偷去会让"已经画好"的那一面变空,再打开又得整块重排)。 */
+const THUMB_W = 1600;          // 画布标准宽度:缩略图按它渲染再缩下来,与真图布局一致
+const thumbCache = new Map();  // 'start|key' / 'lib|key' -> 已画好的 .arch 节点(只缓存自带配色的模板)
+let thumbToken = 0;            // 换面板/关闭时作废还没跑完的任务
+let thumbOwner = null;         // 当前在铺缩略图的是谁:'start' | 'lib'
 function endThumbSession(owner) {
-  if (!thumbRestore && thumbOwner === null) return;   // 没有在跑的任务
-  if (owner && thumbOwner !== owner) return;          // 不是自己的任务,别去关别人的
+  if (owner && thumbOwner !== owner) return;   // 不是自己的任务,别去停别人的
   thumbToken++;
-  if (thumbRestore) { const f = thumbRestore; thumbRestore = null; f(); }
   thumbOwner = null;
+}
+
+/* 把缓存里的缩略图填进格子(顺带按新格子宽度重算缩放);返回还需要现画的 key。
+   写法上刻意「先全部插入、再统一读宽度、最后写 transform」:边插边读会让每张图都触发一次整块重排。 */
+function fillThumbSlots(owner, keys, hostOf) {
+  const missing = [];
+  const placed = [];
+  keys.forEach(k => {
+    const host = hostOf(k);
+    if (!host) return;
+    const node = thumbCache.get(owner + '|' + k);
+    if (!node) { missing.push(k); return; }
+    if (node.parentNode !== host) { host.innerHTML = ''; host.appendChild(node); }
+    placed.push([node, host]);
+  });
+  placed.forEach(([node, host]) => {
+    node.style.transform = 'scale(' + ((host.clientWidth || 240) / THUMB_W).toFixed(4) + ')';
+  });
+  return missing;
+}
+
+/* 现画一个缩略图:克隆模板 → 映射配色 → 拼 .arch HTML → 塞进格子 → 固化配色变量 */
+function paintThumb(host, tpl, fallbackVars, hostW) {
+  if (!host || !tpl) return false;
+  if (host.querySelector('.sp-shot')) return true;   // 已经有成品了(缓存刚搬进来的)
+  const d = migrateDiagram(JSON.parse(JSON.stringify(tpl)));
+  if (!d || d.error) return false;
+  let vars = fallbackVars;
+  if (tpl.scheme && schemeDiagram(d, tpl.scheme)) {
+    const s = COLOR_SCHEMES.find(x => x.id === tpl.scheme);
+    if (s) vars = s.vars;
+  }
+  const scale = ((hostW || 240) / THUMB_W).toFixed(4);
+  host.innerHTML = buildArchHtml(d, 'sp-shot', 'width:' + THUMB_W + 'px;transform:scale(' + scale + ')', false);
+  applyThemeVars(vars, host.firstChild);
+  void host.offsetHeight;   // 当场把这张的排版算进本帧预算,别让十几张的排版堆到帧末一次爆掉
+  return true;
+}
+
+/* 一帧只铺一张:每张要排版一整幅 1600px 的真图,一帧塞几张就会把这一帧拖到 100ms 以上。
+   铺完再让出主线程 —— 面板立刻能点,缩略图在后面几帧里一张张浮现(13 张约 0.2~0.3 秒铺满)。 */
+function renderTemplateThumbs(owner, keys, hostOf, onShot) {
+  thumbToken++;
+  const token = thumbToken;
+  thumbOwner = owner;
+  const savedVars = (diagram && diagram.theme && diagram.theme.vars) || COLOR_SCHEMES[0].vars;
+  const tpls = window.ARCH_TEMPLATES || {};
+  let i = 0;
+  let hostW = 0;                                    // 格子宽度只量一次(同一栅格里都一样宽)
+  const step = () => {
+    if (token !== thumbToken) return;                 // 面板已关/已换:剩下的不画了
+    if (i >= keys.length) { thumbOwner = null; return; }
+    const k = keys[i++];
+    const host = hostOf(k);
+    if (host) {
+      if (!hostW) hostW = host.clientWidth || 240;
+      try {
+        paintThumb(host, tpls[k], savedVars, hostW);
+        if (onShot && host.firstChild) onShot(k, host);
+      } catch (e) {
+        host.innerHTML = '<span class="sp-ph">预览生成失败</span>';
+      }
+    }
+    if (i < keys.length) requestAnimationFrame(step);
+    else thumbOwner = null;
+  };
+  requestAnimationFrame(step);
 }
 
 /* ================= 启动面板(欢迎页:讲功能 + 新建空图 + 从模板创建) ================= */
 function openStartPanel() {
   const el = document.getElementById('startPanel');
   if (!el) return;
-  if (!el.hidden) return;   // 已经开着就不再重跑:缩略图任务正借用画布,重进会覆盖还原点
+  if (!el.hidden) return;   // 已经开着就不再重跑(重进会把格子重建一遍,缩略图白搬一次)
   el.hidden = false;
-  fillStartPanel();
+  /* 同模板库:面板先亮,格子与缩略图下一帧再铺,首屏点击不当场卡一下 */
+  requestAnimationFrame(() => { if (!el.hidden) fillStartPanel(); });
 }
 function closeStartPanel() {
   const el = document.getElementById('startPanel');
   if (!el || el.hidden) return;
-  endThumbSession('start');   // 停掉后台缩略图生成,并先把被临时替换的画布还原
+  endThumbSession('start');   // 停掉还没画完的缩略图任务(画到一半的格子下次再补)
   el.hidden = true;
 }
 function fillStartPanel() {
@@ -205,107 +271,46 @@ function fillStartPanel() {
   const keys = Object.keys(tpls);
   const cnt = document.getElementById('spCount');
   if (cnt) cnt.textContent = '共 ' + keys.length + ' 个模板 · 缩略图由当前渲染引擎实时生成';
-  let html = '<button type="button" class="sp-tile sp-tile-blank" id="spBlankTile">' +
-               '<span class="sp-plus">+</span>' +
-               '<span class="sp-blank-t">空白图</span>' +
-               '<span class="sp-blank-d">从一层一张卡开始</span>' +
-             '</button>';
-  keys.forEach(k => {
-    const t = tpls[k] || {};
-    const lay = t.layout === 'flow' ? '横向流向' : '纵向分层';
-    const tags = (t.tags || []).map(x => '<i class="sp-tag">' + esc(x) + '</i>').join('');
-    html += '<button type="button" class="sp-tile" data-sp-tpl="' + esc(k) + '">' +
-              '<span class="sp-thumb" data-sp-thumb="' + esc(k) + '"><span class="sp-ph">生成预览…</span></span>' +
-              '<span class="sp-meta">' +
-                '<span class="sp-tile-title">' + esc(t.title || k) + '</span>' +
-                '<span class="sp-tile-desc">' + esc(t.desc || '（暂无说明）') + '</span>' +
-                '<span class="sp-tags"><i class="sp-tag lay">' + lay + '</i>' + tags + '</span>' +
-              '</span>' +
-            '</button>';
-  });
-  grid.innerHTML = html;
-  renderTemplateThumbs('start', keys, k => document.querySelector('[data-sp-thumb="' + k + '"]'));
-}
-/* 缩略图 = 真渲染一遍再缩下来:不存静态截图,改版式/配色后自动同步。
-   渲染期间借用 #captureArea(先藏起来,免得半透明遮罩后透出色块闪动),全部跑完还原用户当前图。
-   配色变量只挂到画布自己身上(:root 不动),并写进克隆件,这样已生成的缩略图不会被后续渲染带跑色。
-   owner 标明谁在借画布,hostOf(k) 返回该模板缩略图的挂载点,onShot(k,host) 供调用方缓存成品。 */
-function renderTemplateThumbs(owner, keys, hostOf, onShot) {
-  const cap = document.getElementById('captureArea');
-  if (!cap) return;
-  endThumbSession();                     // 上一轮还没还就先还掉,避免两个会话抢画布
-  const token = ++thumbToken;
-  thumbOwner = owner;
-  const savedD = diagram, savedSel = selectedId;
-  const savedFit = currentFit, savedZoom = zoom;
-  const savedVars = (diagram && diagram.theme && diagram.theme.vars) || COLOR_SCHEMES[0].vars;
-  const savedVis = cap.style.visibility;
-  let capVars = null;                       // 当前挂在画布上的配色变量,换模板/还原时要摘掉
-  cap.style.visibility = 'hidden';
-  const dropCapVars = () => {
-    if (capVars) { clearThemeVars(cap, capVars); capVars = null; }
-  };
-  const restore = () => {
-    dropCapVars();
-    cap.style.visibility = savedVis;
-    diagram = savedD; selectedId = savedSel;
-    applyThemeVars(savedVars);
-    render();
-    applyZoom(savedFit || savedZoom, true);
-    renderProps();
-  };
-  thumbRestore = restore;
-  let i = 0;
-  const step = () => {
-    if (token !== thumbToken) { thumbRestore = null; return; }        // 面板已关:还原交给关闭方
-    if (i >= keys.length) { thumbRestore = null; thumbOwner = null; restore(); return; }
-    const k = keys[i++];
-    const host = hostOf(k);
-    if (!host) { requestAnimationFrame(step); return; }               // 格子已被筛掉,跳过
-    try {
-      const tpl = window.ARCH_TEMPLATES[k];
-      const d = migrateDiagram(JSON.parse(JSON.stringify(tpl)));
-      if (d && !d.error) {
-        diagram = d; selectedId = null;
-        dropCapVars();
-        let vars = savedVars;                                   // 模板没写 scheme 时沿用当前配色
-        if (tpl.scheme) {
-          applyTemplateScheme(tpl.scheme, { skipVars: true });
-          const s = COLOR_SCHEMES.find(x => x.id === tpl.scheme);
-          if (s) vars = s.vars;
-        }
-        applyThemeVars(vars, cap); capVars = vars;
-        render();
-        const arch = cap.querySelector('.arch');
-        if (arch) {
-          const clone = arch.cloneNode(true);
-          clone.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));   // 避免与画布重复 id
-          const w = arch.offsetWidth || 1600;
-          clone.className = 'arch sp-shot';
-          clone.style.width = w + 'px';
-          clone.style.transform = 'scale(' + (host.clientWidth || 240) / w + ')';
-          applyThemeVars(vars, clone);                          // 配色固化进克隆件,脱离画布后仍自洽
-          host.innerHTML = '';
-          host.appendChild(clone);
-          if (onShot) onShot(k, host);
-        }
-      }
-    } catch (e) {
-      host.innerHTML = '<span class="sp-ph">预览生成失败</span>';
-    }
-    requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
+  /* 模板集合没变就沿用现有格子,只把缓存的缩略图补/搬回去(重开面板不再重建 13 块大结构) */
+  const sig = keys.join('|');
+  const reuse = grid.getAttribute('data-sig') === sig && grid.children.length === keys.length + 1;
+  if (!reuse) {
+    let html = '<button type="button" class="sp-tile sp-tile-blank" id="spBlankTile">' +
+                 '<span class="sp-plus">+</span>' +
+                 '<span class="sp-blank-t">空白图</span>' +
+                 '<span class="sp-blank-d">从一层一张卡开始</span>' +
+               '</button>';
+    keys.forEach(k => {
+      const t = tpls[k] || {};
+      const lay = layoutShort(t.layout);
+      const tags = (t.tags || []).map(x => '<i class="sp-tag">' + esc(x) + '</i>').join('');
+      html += '<button type="button" class="sp-tile" data-sp-tpl="' + esc(k) + '">' +
+                '<span class="sp-thumb" data-sp-thumb="' + esc(k) + '"><span class="sp-ph">生成预览…</span></span>' +
+                '<span class="sp-meta">' +
+                  '<span class="sp-tile-title">' + esc(t.title || k) + '</span>' +
+                  '<span class="sp-tile-desc">' + esc(t.desc || '（暂无说明）') + '</span>' +
+                  '<span class="sp-tags"><i class="sp-tag lay">' + lay + '</i>' + tags + '</span>' +
+                '</span>' +
+              '</button>';
+    });
+    grid.innerHTML = html;
+    grid.setAttribute('data-sig', sig);
+  }
+  const missing = fillThumbSlots('start', keys, k => document.querySelector('[data-sp-thumb="' + k + '"]'));
+  if (missing.length) {
+    renderTemplateThumbs('start', missing,
+      k => document.querySelector('[data-sp-thumb="' + k + '"]'),
+      (k, host) => { if ((tpls[k] || {}).scheme) thumbCache.set('start|' + k, host.firstChild); });
+  }
 }
 
 /* ================= 模板库(搜索 + 板式/场景筛选 + 实时缩略图) ================= */
 /* 与开始页共用 .sp-tile 与缩略图渲染,只是多了搜索与筛选;模板涨到几十个也只是滚动 + 搜索。 */
 let tlFilter = { q: '', lay: 'all', tag: '' };
-const tlThumbs = new Map();   // key -> 已渲染的缩略图 HTML:切换筛选时直接复用,不重渲染
 
 function tplLibMatches(key) {
   const t = (window.ARCH_TEMPLATES || {})[key] || {};
-  const lay = t.layout === 'flow' ? 'flow' : 'layered';
+  const lay = layoutOf(t).id;
   if (tlFilter.lay !== 'all' && lay !== tlFilter.lay) return false;
   if (tlFilter.tag && (t.tags || []).indexOf(tlFilter.tag) < 0) return false;
   const q = tlFilter.q.trim().toLowerCase();
@@ -314,7 +319,31 @@ function tplLibMatches(key) {
   return hay.toLowerCase().indexOf(q) >= 0;
 }
 
+/* 板式筛选按钮由布局注册表生成(层次 / 流向 / 清单 …),再带上一颗「全部」。
+   以后在 editor-layout.js 里加一种板式,这里自动多一颗按钮,不用改界面代码。 */
+function fillTplLibSeg() {
+  const box = document.getElementById('tlSeg');
+  if (!box) return;
+  const tpls = window.ARCH_TEMPLATES || {};
+  const keys = Object.keys(tpls);
+  const countOf = id => keys.filter(k => id === 'all' || layoutOf(tpls[k]).id === id).length;
+  const items = [{ id: 'all', short: '全部', name: '全部板式' }].concat(
+    LAYOUT_LIST.map(L => ({ id: L.id, short: L.short, name: L.name })));
+  const sig = items.map(x => x.id + ':' + countOf(x.id)).join('|');
+  if (box.getAttribute('data-sig') !== sig) {
+    box.innerHTML = items.map(x =>
+      '<button type="button" data-lay="' + esc(x.id) + '" title="' + esc(x.name) + '">' +
+        esc(x.short) + '<i class="tl-n">' + countOf(x.id) + '</i>' +
+      '</button>').join('');
+    box.setAttribute('data-sig', sig);
+  }
+  Array.prototype.forEach.call(box.querySelectorAll('button'), b => {
+    b.classList.toggle('on', b.getAttribute('data-lay') === tlFilter.lay);
+  });
+}
+
 function fillTplLib() {
+  fillTplLibSeg();
   const tpls = window.ARCH_TEMPLATES || {};
   const tags = [];
   Object.keys(tpls).forEach(k => (tpls[k].tags || []).forEach(t => { if (tags.indexOf(t) < 0) tags.push(t); }));
@@ -339,29 +368,35 @@ function renderTplLib() {
   const cnt = document.getElementById('tlCount');
   if (cnt) cnt.textContent = keys.length === all.length ? String(all.length) : keys.length + ' / ' + all.length;
   if (!keys.length) {
+    grid.removeAttribute('data-sig');
     grid.innerHTML = '<div class="tl-empty">没有匹配的模板：换个关键词，或点上方「全部」看所有模板</div>';
     return;
   }
-  grid.innerHTML = keys.map(k => {
-    const t = tpls[k] || {};
-    const lay = t.layout === 'flow' ? '横向流向' : '纵向分层';
-    const tags = (t.tags || []).map(x => '<i class="sp-tag">' + esc(x) + '</i>').join('');
-    return '<button type="button" class="sp-tile" data-tl-tpl="' + esc(k) + '">' +
-             '<span class="sp-thumb" data-tl-thumb="' + esc(k) + '">' +
-               (tlThumbs.get(k) || '<span class="sp-ph">生成预览…</span>') +
-             '</span>' +
-             '<span class="sp-meta">' +
-               '<span class="sp-tile-title">' + esc(t.title || k) + '</span>' +
-               '<span class="sp-tile-desc">' + esc(t.desc || '（暂无说明）') + '</span>' +
-               '<span class="sp-tags"><i class="sp-tag lay">' + lay + '</i>' + tags + '</span>' +
-             '</span>' +
-           '</button>';
-  }).join('');
-  const missing = keys.filter(k => !tlThumbs.has(k));
+  /* 同一批模板就沿用现有格子(切筛选/重开面板不重建 DOM),只把缓存的缩略图补/搬回去 */
+  const sig = keys.join('|');
+  const reuse = grid.getAttribute('data-sig') === sig && grid.children.length === keys.length;
+  if (!reuse) {
+    grid.innerHTML = keys.map(k => {
+      const t = tpls[k] || {};
+      const lay = layoutShort(t.layout);
+      const tags = (t.tags || []).map(x => '<i class="sp-tag">' + esc(x) + '</i>').join('');
+      return '<button type="button" class="sp-tile" data-tl-tpl="' + esc(k) + '">' +
+               '<span class="sp-thumb" data-tl-thumb="' + esc(k) + '"><span class="sp-ph">生成预览…</span></span>' +
+               '<span class="sp-meta">' +
+                 '<span class="sp-tile-title">' + esc(t.title || k) + '</span>' +
+                 '<span class="sp-tile-desc">' + esc(t.desc || '（暂无说明）') + '</span>' +
+                 '<span class="sp-tags"><i class="sp-tag lay">' + lay + '</i>' + tags + '</span>' +
+               '</span>' +
+             '</button>';
+    }).join('');
+    grid.setAttribute('data-sig', sig);
+  }
+  /* 已经画过的直接从缓存搬节点(不重新解析 HTML),剩下的按帧现画 */
+  const missing = fillThumbSlots('lib', keys, k => grid.querySelector('[data-tl-thumb="' + k + '"]'));
   if (missing.length) {
     renderTemplateThumbs('lib', missing,
       k => grid.querySelector('[data-tl-thumb="' + k + '"]'),
-      (k, host) => { tlThumbs.set(k, host.innerHTML); });   // 成品缓存:再切换筛选不用重渲染
+      (k, host) => { if ((tpls[k] || {}).scheme) thumbCache.set('lib|' + k, host.firstChild); });
   }
 }
 
@@ -374,16 +409,18 @@ function openTplLib() {
   tlFilter = { q: '', lay: 'all', tag: '' };
   const s = document.getElementById('tlSearch');
   if (s) s.value = '';
-  document.querySelectorAll('#tlSeg button').forEach(b => b.classList.toggle('on', b.getAttribute('data-lay') === 'all'));
+  fillTplLibSeg();   // 板式按钮先就位(顺带把「全部」点亮),别等下一帧
   el.hidden = false;
-  fillTplLib();
   if (s) { try { s.focus(); } catch (e) { } }
+  /* 面板先亮、内容下一帧再铺:13 个格子 + 标签和搜索框一起建要几十毫秒,
+     放在点击这一帧里就是那一下「点下去没反应」。 */
+  requestAnimationFrame(() => { if (!el.hidden) fillTplLib(); });
 }
 
 function closeTplLib() {
   const el = document.getElementById('tplLib');
   if (!el || el.hidden) return;
-  endThumbSession('lib');   // 停掉后台缩略图生成,并先把被临时替换的画布还原
+  endThumbSession('lib');   // 停掉还没画完的缩略图任务(画到一半的格子下次再补)
   el.hidden = true;
 }
 
@@ -491,11 +528,11 @@ function connRowHtml(c, i) {
   var sOpts = [['solid', '实线'], ['dashed', '虚线'], ['dotted', '点线']].map(function(p) {
     return '<option value="' + p[0] + '"' + ((c.style || 'solid') === p[0] ? ' selected' : '') + '>' + p[1] + '</option>';
   }).join('');
-  /* 横向流向只渲染相邻列:非相邻行就地提示,而不是保存后再弹警告 */
+  /* 只允许相邻列的布局(flow)就地提示,而不是保存后再弹警告 */
   var warn = '';
-  if (diagram.layout === 'flow' && c.from && c.to && c.from !== c.to) {
+  if (layoutCaps(diagram).connAdjacent && c.from && c.to && c.from !== c.to) {
     if (connLayerIndex(c.to) !== connLayerIndex(c.from) + 1) {
-      warn = '「横向流向」只渲染相邻两列，这条不会出现在图上';
+      warn = '「' + layoutName(diagram.layout) + '」只渲染相邻两列，这条不会出现在图上';
     }
   }
   var rowCls = 'ce-row' + (bad ? ' bad' : '') + (warn ? ' warn' : '');
@@ -559,7 +596,7 @@ function connPreview() {
   /* 「在画布上显示」关掉时预览也要一起关,否则取消回滚看起来没生效 */
   var on = !!diagram.showConnections;
   var rows = on ? _connDraft.filter(function(c) { return c.from && c.to && c.from !== c.to; }) : [];
-  if (diagram.layout === 'layered') {
+  if (layoutCaps(diagram).railPad) {
     /* 预览时的轨道数来自草稿:补足左边距,否则新增层对的竖轨会叠在层名色带上 */
     var stack = document.querySelector('#archCanvas .lay-stack');
     if (stack) {
@@ -628,12 +665,12 @@ function connPickHandle(e) {
   var f = _connPick.f, i = _connPick.i;
   var fromId = f === 'from' ? id : row.from;
   var toId = f === 'to' ? id : row.to;
-  /* 横向流向只渲染相邻列:点选时就拦下,不让人配出永不显示的线 */
-  if (diagram.layout === 'flow' && fromId && toId) {
+  /* 只允许相邻列的布局:点选时就拦下,不让人配出永不显示的线 */
+  if (layoutCaps(diagram).connAdjacent && fromId && toId) {
     var fi = connLayerIndex(fromId), ti = connLayerIndex(toId);
     if (Math.abs(ti - fi) !== 1) {
       var a = connLayerOf(fromId), b = connLayerOf(toId);
-      ceTip('「横向流向」只能连相邻两列：' + ((a && a.name) || '?') + ' 与 ' + ((b && b.name) || '?') + ' 不相邻。');
+      ceTip('「' + layoutName(diagram.layout) + '」只能连相邻两列：' + ((a && a.name) || '?') + ' 与 ' + ((b && b.name) || '?') + ' 不相邻。');
       return;
     }
   }
@@ -653,15 +690,16 @@ function connPickHandle(e) {
   ceTip('');
 }
 function connPanelHtml() {
-  var flow = diagram.layout === 'flow';
+  var adjacent = layoutCaps(diagram).connAdjacent;
+  var lname = layoutName(diagram.layout);
   return '<div class="ce-head">' +
       '<span class="ce-title">层间连线</span>' +
       '<label class="ce-vis"><input type="checkbox" data-cmd="conn-vis"' + (diagram.showConnections ? ' checked' : '') + '> 在画布上显示</label>' +
       '<button type="button" class="ce-x" data-cmd="conn-close" title="关闭（等同取消）">\u2715</button>' +
     '</div>' +
-    '<div class="ce-hint">' + (flow
-      ? '「横向流向」：只能连<b>相邻两列</b>，箭头画在列间空隙里，说明显示在箭头上方。'
-      : '「多层横向」：任意层对都能连，箭头从起点层左缘出发、经左侧竖轨指向终点层，说明显示在竖轨旁。') +
+    '<div class="ce-hint">' + (adjacent
+      ? '「' + lname + '」：只能连<b>相邻两列</b>，箭头画在列间空隙里，说明显示在箭头上方。'
+      : '「' + lname + '」：任意层对都能连，箭头从起点层左缘出发、经左侧竖轨指向终点层，说明显示在竖轨旁。') +
       '点「起点」或「终点」后，直接在画布上点对应的层。</div>' +
     '<div class="ce-list" id="ceRows"></div>' +
     '<div class="ce-tools">' +
@@ -1050,9 +1088,11 @@ async function exportPng() {
    只改内存(diagram.theme / 各色值),不落盘不渲染,由调用方决定后续动作。
    opts.skipVars:调用方自己把配色变量挂到局部元素上(开始页/模板库缩略图),不要动 :root。 */
 const TEMPLATE_BASE_SCHEME = 'blue';
-function applyTemplateScheme(key, opts) {
+/* 纯函数版:只改传进来的那张图(层带/分组/模块/侧栏/图例的颜色档位 + theme),不碰全局状态与 :root。
+   缩略图就用它 —— 不必把模板临时塞进 diagram,也就不会干扰用户当前那张图。 */
+function schemeDiagram(d, key) {
   const target = COLOR_SCHEMES.find(s => s.id === key);
-  if (!target || !diagram) return false;
+  if (!target || !d) return false;
   const base = COLOR_SCHEMES.find(s => s.id === TEMPLATE_BASE_SCHEME) || COLOR_SCHEMES[0];
   const map = c => {
     if (!c) return c;
@@ -1061,13 +1101,19 @@ function applyTemplateScheme(key, opts) {
     if (i < 0) i = nearestRampIndex(c, base.colors);
     return i >= 0 ? target.colors[i] : c;
   };
-  (diagram.layers || []).forEach(l => {
+  (d.layers || []).forEach(l => {
     if (l.bandColor) l.bandColor = map(l.bandColor);
     (l.groups || []).forEach(g => (g.blocks || []).forEach(b => { if (b.color) b.color = map(b.color); }));
   });
-  (diagram.sidebar || []).forEach(s => { if (s.color) s.color = map(s.color); });
-  (diagram.legend || []).forEach(x => { if (x.color) x.color = map(x.color); });
-  diagram.theme = { id: target.id, custom: null, vars: Object.assign({}, target.vars) };
+  (d.sidebar || []).forEach(s => { if (s.color) s.color = map(s.color); });
+  (d.legend || []).forEach(x => { if (x.color) x.color = map(x.color); });
+  d.theme = { id: target.id, custom: null, vars: Object.assign({}, target.vars) };
+  return true;
+}
+function applyTemplateScheme(key, opts) {
+  const target = COLOR_SCHEMES.find(s => s.id === key);
+  if (!target || !diagram) return false;
+  schemeDiagram(diagram, key);
   if (!(opts && opts.skipVars)) applyThemeVars(diagram.theme.vars);
   return true;
 }
@@ -1400,7 +1446,13 @@ function bindEvents() {
     let v = el.value;
     if (k === 'cols') v = parseInt(v, 10) || 3;
     if (k === 'span') v = parseInt(v, 10) || 1;
-    node[k] = v;
+    const listPath = el.getAttribute('data-list');
+    if (listPath) {
+      const arr = v.split(/[,，、;；]+/).map(s => s.trim()).filter(Boolean);
+      setPath(node, listPath, arr);
+    } else {
+      node[k] = v;
+    }
     persist();
     render();
     highlightSel();

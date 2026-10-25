@@ -101,12 +101,14 @@ try {
   await send('Page.enable');
   await send('Runtime.enable');
 
-  // 1) ?start=1 打开开始页,12 个模板格子,缩略图实时渲染出来
+  // 1) ?start=1 打开开始页，模板格子数 = 模板注册表里的模板数（加模板不用改测试）
   await goto(PAGE + '?start=1', 2500);
   check('开始页打开', await evalJs('return document.getElementById("startPanel").hidden === false;'));
-  check('模板格子 12 个', (await evalJs('return document.querySelectorAll("[data-sp-tpl]").length;')) === 12);
+  const tplCount = await evalJs('return Object.keys(ARCH_TEMPLATES).length;');
+  check('模板注册表非空', tplCount >= 12, tplCount);
+  check('模板格子数 = 注册表模板数', (await evalJs('return document.querySelectorAll("[data-sp-tpl]").length;')) === tplCount, tplCount);
   await sleep(2500);
-  check('缩略图全部生成', (await evalJs('return document.querySelectorAll(".sp-shot").length;')) === 12);
+  check('缩略图全部生成', (await evalJs('return document.querySelectorAll(".sp-shot").length;')) === tplCount, tplCount);
   check('空白图格子存在', await evalJs('return !!document.getElementById("spBlankTile");'));
   // 缩略图配色各自固化:早期版本每个模板都改 :root,已生成的缩略图会跟着轮换变色,最后全变蓝
   const thumbVars = await evalJs(`return {
@@ -166,20 +168,31 @@ try {
   await evalJs('document.getElementById("btnTplLib").click(); return 1;');
   await sleep(1200);
   check('模板库打开', await evalJs('return document.getElementById("tplLib").hidden === false;'));
-  check('模板库格子 12 个', (await evalJs('return document.querySelectorAll("[data-tl-tpl]").length;')) === 12);
+  check('模板库格子数 = 注册表模板数', (await evalJs('return document.querySelectorAll("[data-tl-tpl]").length;')) === tplCount, tplCount);
   check('场景标签渲染', (await evalJs('return document.querySelectorAll("[data-tl-tag]").length;')) >= 10);
   await sleep(2500);
-  check('模板库缩略图全部生成', (await evalJs('return document.querySelectorAll("#tlGrid .sp-shot").length;')) === 12);
+  check('模板库缩略图全部生成', (await evalJs('return document.querySelectorAll("#tlGrid .sp-shot").length;')) === tplCount, tplCount);
   await evalJs('var s=document.getElementById("tlSearch"); s.value="安全"; s.dispatchEvent(new Event("input",{bubbles:true})); return 1;');
   await sleep(400);
   const searched = await evalJs('return {n: document.querySelectorAll("[data-tl-tpl]").length, txt: document.getElementById("tlCount").textContent};');
   check('搜索「安全」筛出 2 个(安全架构 + 总体的说明里带"安全")', searched.n === 2, searched);
-  check('计数显示 2 / 12', searched.txt === '2 / 12', searched.txt);
+  check('计数显示 n / 总数', searched.txt === '2 / ' + tplCount, searched.txt);
   await evalJs('var s=document.getElementById("tlSearch"); s.value=""; s.dispatchEvent(new Event("input",{bubbles:true})); return 1;');
   await sleep(300);
   await evalJs('document.querySelector("#tlSeg [data-lay=\\"flow\\"]").click(); return 1;');
   await sleep(400);
   check('板式筛选:横向流向 3 个', (await evalJs('return document.querySelectorAll("[data-tl-tpl]").length;')) === 3);
+  /* 板式按钮由布局注册表生成:注册表里加一种板式,这里应自动多一颗 —— 别在界面里写死三个 */
+  const seg = await evalJs(`return {
+    btns: Array.from(document.querySelectorAll('#tlSeg [data-lay]')).map(b => b.getAttribute('data-lay')),
+    layouts: LAYOUT_LIST.map(L => L.id),
+    counts: Array.from(document.querySelectorAll('#tlSeg [data-lay]')).map(b => b.querySelector('.tl-n').textContent)
+  };`);
+  check('板式按钮 = 全部 + 注册表里的板式', JSON.stringify(seg.btns) === JSON.stringify(['all'].concat(seg.layouts)), seg.btns);
+  check('板式按钮带模板数', seg.counts.every(n => /^\d+$/.test(n)) && seg.counts[0] === String(tplCount), seg.counts);
+  await evalJs('document.querySelector("#tlSeg [data-lay=\\"table\\"]").click(); return 1;');
+  await sleep(500);
+  check('板式筛选:清单 4 个', (await evalJs('return document.querySelectorAll("[data-tl-tpl]").length;')) === 4);
   await evalJs('document.querySelector("#tlSeg [data-lay=\\"all\\"]").click(); return 1;');
   await sleep(300);
   await evalJs('document.querySelector("[data-tl-tag=\\"数仓\\"]").click(); return 1;');
@@ -187,7 +200,7 @@ try {
   check('标签筛选:数仓 1 个', (await evalJs('return document.querySelectorAll("[data-tl-tpl]").length;')) === 1);
   await evalJs('document.querySelector("[data-tl-tag=\\"数仓\\"]").click(); return 1;');   // 再点一次取消
   await sleep(400);
-  check('再点标签取消筛选', (await evalJs('return document.querySelectorAll("[data-tl-tpl]").length;')) === 12);
+  check('再点标签取消筛选', (await evalJs('return document.querySelectorAll("[data-tl-tpl]").length;')) === tplCount, tplCount);
   await evalJs('document.querySelector("[data-tl-tpl=\\"security\\"]").click(); return 1;');
   await sleep(1000);
   const libPick = await evalJs('return {hidden: document.getElementById("tplLib").hidden, title: diagram.title, theme: diagram.theme && diagram.theme.id};');
@@ -200,7 +213,52 @@ try {
   await sleep(400);
   check('Esc 关闭模板库', await evalJs('return document.getElementById("tplLib").hidden === true;'));
 
-  // 8) 整个流程里不应有未捕获异常 / console.error
+  // 8) 布局矩阵:注册表里的每个布局都要能渲染、能导出(以后加新布局,这项自动覆盖)
+  const layoutIds = await evalJs('return LAYOUT_LIST.map(function (L) { return L.id; });');
+  check('布局注册表非空', Array.isArray(layoutIds) && layoutIds.length >= 2, layoutIds);
+  await evalJs('selectById(diagram.id); return 1;');
+  await sleep(300);
+  const layoutOpts = await evalJs('return [...document.querySelectorAll(\'#propPanel select[data-k="layout"] option\')].map(o => o.value);');
+  check('属性面板布局选项来自注册表', JSON.stringify(layoutOpts) === JSON.stringify(layoutIds), { layoutOpts, layoutIds });
+  for (const id of layoutIds) {
+    const r = await evalJs(`diagram.layout = ${JSON.stringify(id)}; render(); return {
+      layers: diagram.layers.length,
+      drawn: document.querySelectorAll('#archCanvas [data-role="layer"]').length,
+      cards: document.querySelectorAll('#archCanvas [data-role="card"]').length,
+      svg: buildSvgString().length,
+      verts: (buildDrawioXml().match(/vertex="1"/g) || []).length
+    };`);
+    check(`布局 ${id} 渲染出全部层`, r.drawn === r.layers && r.layers > 0, r);
+    check(`布局 ${id} 卡片带 data-role`, r.cards > 0, r.cards);
+    check(`布局 ${id} 可导出 SVG/drawio`, r.svg > 1000 && r.verts > 0, r);
+  }
+  // 未知布局名要退到默认布局,而不是渲染成空白画布(坏数据不能把图变白)
+  const fallback = await evalJs('diagram.layout = "does-not-exist"; render(); return {shown: document.querySelectorAll(\'#archCanvas [data-role="layer"]\').length, eff: layoutOf(diagram).id};');
+  check('未知布局回退到默认布局', fallback.shown > 0 && fallback.eff === 'layered', fallback);
+
+  // 8b) 清单布局:同一份数据换个摆法(块=行、条目=列值),不转换数据也不丢内容
+  const tb = await evalJs(`loadTemplateByKey("micro"); diagram.layout = "table"; render();
+    const rows = document.querySelectorAll('#archCanvas .tb-row');
+    const heads = document.querySelectorAll('#archCanvas .tb-head .tb-hc');
+    const cells = rows[0] ? rows[0].querySelectorAll('.tb-cell').length : 0;
+    return { blocks: diagram.layers.reduce((n, l) => n + l.groups.reduce((m, g) => m + g.blocks.length, 0), 0),
+             rows: rows.length, heads: heads.length, cells: cells,
+             head0: heads[0] ? heads[0].textContent : '' };`);
+  check('清单布局:块=行', tb.rows > 0 && tb.rows === tb.blocks, tb);
+  check('清单布局:有表头且与行内格子数一致', tb.heads >= 2 && tb.cells === tb.heads, tb);
+  check('清单布局:表头默认可读', /模块|列/.test(tb.head0) || tb.head0.length > 0, tb.head0);
+  const tbCols = await evalJs(`setPath(diagram, "ext.table.columns", ["服务", "负责人", "自定义"]); render();
+    return [...document.querySelectorAll('#archCanvas .tb-head .tb-hc')].map(e => e.textContent);`);
+  check('清单布局:表头可自定义', tbCols[0] === '服务' && tbCols[2] === '自定义', tbCols);
+  const tbProps = await evalJs(`selectById(diagram.id); return { has: !!document.querySelector('#propPanel input[data-list="ext.table.columns"]') };`);
+  await sleep(200);
+  check('清单布局:属性面板有表头列名', tbProps.has === true, tbProps);
+
+  await evalJs('loadTemplateByKey("data", {useTemplateScheme: true}); return 1;');
+  await sleep(600);
+  check('布局矩阵跑完后图恢复正常', await evalJs('return diagram.title === "数据架构图" && document.querySelectorAll(\'#archCanvas [data-role="card"]\').length > 0;'));
+
+  // 9) 整个流程里不应有未捕获异常 / console.error
   check('页面无未捕获异常', pageErrors.length === 0, pageErrors.slice(0, 3));
 } catch (e) {
   fail.push('异常: ' + e.message);

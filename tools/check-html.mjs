@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 
 const HTML = 'index.html';
-const JS_FILES = ['editor-core.js', 'editor-tree.js', 'editor-render.js', 'editor-conn.js', 'editor-ui.js'];
+const JS_FILES = ['editor-core.js', 'editor-tree.js', 'editor-render.js', 'editor-layout.js', 'editor-conn.js', 'editor-ui.js'];
 // 运行期由 JS 自己 createElement / innerHTML 出来的 id(不在 index.html 里)
 const ALLOW = new Set([
   'treeCtxMenu',                                            // 树右键菜单

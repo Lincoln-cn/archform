@@ -75,7 +75,7 @@ function connP(el) {
 /* 解析全部有效连线 → 画线元素列表(供 on-screen overlay 与 SVG 导出共用) */
 function connItems(opts) {
   if (!diagram) return [];
-  if (diagram.layout !== 'layered') return [];
+  if (layoutCaps(diagram).conn !== 'rails') return [];
   if (!connForceFor(opts)) return [];
   var conns = connListFor(opts);
   if (!conns.length) return [];
@@ -160,7 +160,7 @@ function connLabelBox(it, tw, th) {
 /* flow 相邻列间隙箭头:仅 layers[i]→layers[i+1] 水平段;带说明时标签置于箭头正上方 */
 function connFlowItems(opts) {
   if (!diagram) return [];
-  if (diagram.layout !== 'flow') return [];
+  if (layoutCaps(diagram).conn !== 'gaps') return [];
   if (!connForceFor(opts)) return [];
   var conns = connListFor(opts);
   if (!conns.length) return [];
@@ -199,9 +199,17 @@ function connEsc(s) {
   return String(s ?? '').replace(/[&<>"]/g, function(c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; });
 }
 
+/* 按当前布局的 caps 取连线元素(唯一分派点:布局声明 conn 形态,这里不再写布局名) */
+function connItemsByLayout(opts) {
+  var mode = diagram ? layoutCaps(diagram).conn : 'none';
+  if (mode === 'rails') return connItems(opts);
+  if (mode === 'gaps') return connFlowItems(opts);
+  return [];
+}
+
 /* 返回可直接拼入导出 SVG 的连线 XML 片段(仅当 showConnections 且有效连线) */
 function connSvgXml() {
-  var items = (diagram && diagram.layout === 'flow') ? connFlowItems() : connItems();
+  var items = connItemsByLayout();
   if (!items.length) return '';
   var parts = [];
   /* 独立 marker id 防与 DOM overlay 混淆 */
@@ -267,32 +275,52 @@ function drawioHex(c, fallback) {
   return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s) ? s : fallback;
 }
 
+/* data-role → 导出用的元素种类(布局契约);没有 data-role 时退回 class 名兜底 */
+function drawioRoleOf(el) {
+  var role = el.getAttribute && el.getAttribute('data-role');
+  if (role) return role;
+  var cl = el.classList || { contains: function() { return false; } };
+  if (el.tagName === 'H1') return 'title';
+  if (cl.contains('subtitle')) return 'subtitle';
+  if (cl.contains('layer')) return 'layer';
+  if (cl.contains('subdomain')) return 'group';
+  if (cl.contains('card')) return 'card';
+  if (cl.contains('sbar')) return 'sidebar';
+  if (cl.contains('legend-item')) return 'legend';
+  return '';
+}
+
 /* 生成 draw.io XML 字符串(纯函数式,读当前 DOM+diagram) */
 function buildDrawioXml() {
   if (!diagram) return '';
   var title = diagram.title || '架构图';
-  var isFlow = diagram.layout === 'flow';
+  /* 导出口径全部来自布局注册表:swimlane 方向/尺寸、连线出边方向;不再判断布局名 */
+  var lay = layoutOf(diagram);
+  var dw = lay.drawio || {};
+  var swim = dw.swimlane || { horizontal: false, startSize: 52, fontSize: 17 };
+  var exitRight = dw.exit === 'right';
   var cv = document.getElementById('archCanvas');
   if (!cv) return '';
 
   /* 元素分类:同一个 data-id 会出现在多个元素上(标题 h1 与副标题、层 section 与它的 .band、
      分组 .subdomain 与图例 .legend-item),所以不能只按 data-id 建一张几何表;
-     按「元素种类 + data-id」分别取,图例按 DOM 顺序与 diagram.legend 一一对位。 */
+     按「元素种类 + data-id」分别取,图例按 DOM 顺序与 diagram.legend 一一对位。
+     种类认 data-role(布局契约),class 名只作为老数据的兜底。 */
   var kinds = { layer: {}, group: {}, card: {}, sbar: {} };
   var legendEls = [];
   var titleEl = null, subEl = null;
   var noCls = { contains: function() { return false; } };
   cv.querySelectorAll('[data-id]').forEach(function(el) {
     var id = el.getAttribute('data-id');
-    var cl = el.classList || noCls;
-    if (el.tagName === 'H1') { if (!titleEl) titleEl = el; return; }
-    if (cl.contains('subtitle')) { if (!subEl) subEl = el; return; }
+    var role = drawioRoleOf(el);
+    if (role === 'title') { if (!titleEl) titleEl = el; return; }
+    if (role === 'subtitle') { if (!subEl) subEl = el; return; }
     if (!id) return;
-    if (cl.contains('layer')) { if (!kinds.layer[id]) kinds.layer[id] = el; }
-    else if (cl.contains('subdomain')) { if (!kinds.group[id]) kinds.group[id] = el; }
-    else if (cl.contains('card')) { if (!kinds.card[id]) kinds.card[id] = el; }
-    else if (cl.contains('sbar')) { if (!kinds.sbar[id]) kinds.sbar[id] = el; }
-    else if (cl.contains('legend-item')) legendEls.push(el);
+    if (role === 'layer') { if (!kinds.layer[id]) kinds.layer[id] = el; }
+    else if (role === 'group') { if (!kinds.group[id]) kinds.group[id] = el; }
+    else if (role === 'card') { if (!kinds.card[id]) kinds.card[id] = el; }
+    else if (role === 'sidebar') { if (!kinds.sbar[id]) kinds.sbar[id] = el; }
+    else if (role === 'legend') legendEls.push(el);
   });
   /* 元素几何:取不到 / NaN / 0 尺寸一律返回 null,宁可不画也不写坏 cell */
   function rectOf(el) {
@@ -345,10 +373,9 @@ function buildDrawioXml() {
       ' vertex="1" parent="1">' + geoXml(subGeo) + '</mxCell>');
   }
 
-  /* 每层 → swimlane; flow 用 horizontal=1 + startSize=36, layered 用左侧竖排色带 */
-  var swimStyle = isFlow
-    ? 'swimlane;horizontal=1;startSize=36;whiteSpace=wrap;html=1;fontStyle=1;fontSize=15;fontColor=#ffffff;'
-    : 'swimlane;horizontal=0;startSize=52;whiteSpace=wrap;html=1;fontStyle=1;fontSize=17;fontColor=#ffffff;';
+  /* 每层 → swimlane;方向/标题带宽度/字号由布局描述声明(flow 横带、layered 左侧竖带) */
+  var swimStyle = 'swimlane;horizontal=' + (swim.horizontal ? 1 : 0) + ';startSize=' + swim.startSize +
+    ';whiteSpace=wrap;html=1;fontStyle=1;fontSize=' + swim.fontSize + ';fontColor=#ffffff;';
   (diagram.layers || []).forEach(function(layer) {
     var lGeo = rectOf(kinds.layer[layer.id]);
     if (!lGeo) return;
@@ -391,7 +418,7 @@ function buildDrawioXml() {
     var srcId = idMap[c.from], tgtId = idMap[c.to];
     if (!srcId || !tgtId || c.from === c.to) return;
     var style = 'edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#475569;';
-    style += isFlow
+    style += exitRight
       ? 'exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;'
       : 'exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;';
     if (c.style === 'dashed') style += 'dashed=1;';
@@ -483,11 +510,8 @@ function exportDrawio() {
 function drawConnections(opts) {
   var cv = canvasRef();
   if (!cv) return;
-  /* 双分支:layered 走多轨道正交,flow 走相邻列水平箭头 */
-  var items = [];
-  if (diagram) {
-    items = diagram.layout === 'layered' ? connItems(opts) : diagram.layout === 'flow' ? connFlowItems(opts) : [];
-  }
+  /* 连线形态由布局注册表声明(rails=多轨道正交 / gaps=相邻列水平箭头) */
+  var items = diagram ? connItemsByLayout(opts) : [];
   var old = cv.querySelector('.conn-overlay');
   if (old) old.remove();
   if (!items.length) return;

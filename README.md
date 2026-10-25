@@ -16,7 +16,7 @@
 
 | | | |
 |---|---|---|
-| Editor · Data Architecture (its own violet palette) | Start page · twelve live-rendered thumbnails | Template library · search, layout filter, scenario tags |
+| Editor · Data Architecture (its own violet palette) | Start page · live-rendered thumbnails | Template library · search, layout filter, scenario tags |
 | ![Editor with the Data Architecture template](docs/images/editor.png) | ![Start page](docs/images/start-page.png) | ![Template library](docs/images/template-library.png) |
 | Flow layout · Data Flow (violet) | Overall Architecture · layered (slate palette) | Clean PNG export (standalone, 2× scale) |
 | ![Data Flow template in the flow layout](docs/images/flow-preview.png) | ![Overall Architecture template](docs/images/overall.png) | ![Standalone PNG export](docs/images/export-data.png) |
@@ -27,8 +27,8 @@ Layered architecture diagrams are roughly 90% nested structure — **Layer → G
 
 ## Features
 
-- **Start page** — first run opens a launcher that explains what the tool does, offers blank / from-text / import JSON, and shows all twelve templates as **live-rendered thumbnails** (drawn by the real render engine, so they never go stale); reopen it any time from the toolbar's **Start** button
-- **Per-template palette** — each template ships with its own palette (blue / slate / forest / violet / aqua / amber), so the gallery reads as twelve different diagram types instead of twelve copies of the same blue; switching templates inside the editor keeps the palette you already picked
+- **Start page** — first run opens a launcher that explains what the tool does, offers blank / from-text / import JSON, and shows all built-in templates as **live-rendered thumbnails** (drawn by the real render engine, so they never go stale); reopen it any time from the toolbar's **Start** button
+- **Per-template palette** — each template ships with its own palette (blue / slate / forest / violet / aqua / amber), so the gallery reads as distinct diagram types instead of copies of the same blue; switching templates inside the editor keeps the palette you already picked
 - **Structured input** — edit a four-level tree (Diagram → Layer → Group → Block → Item); a quick-add bar at the bottom of the tree types nodes with Enter / Tab / Shift+Tab, and a right-click context menu covers new / copy / paste / move up / move down / delete
 - **Undo / redo** — 50-step history across every edit (structure, properties, color schemes, template loads), Ctrl+Z / Ctrl+Shift+Z
 - **Automatic layout** — two paradigms over the same data, switchable without losing anything: *layered* and *flow* (horizontal); legacy cards/central data auto-converts to layered on open
@@ -40,7 +40,7 @@ Layered architecture diagrams are roughly 90% nested structure — **Layer → G
 - **Fully offline** — export vector **SVG**, high-resolution **PNG** (2×), or a standalone **HTML** file with embedded vector data; zero network requests, zero runtime dependencies, double-click `file://` to run
 - **Versioned data** — every diagram carries a `schemaVersion` and is auto-migrated on load (`migrateDiagram`); JSON import/export plus `localStorage` autosave
 - **Template library** — the toolbar's **Template** button opens a searchable gallery (search, layout filter, scenario tags) with live-rendered thumbnails, so it still works when the catalogue grows to dozens of templates instead of turning into one long dropdown
-- **Twelve built-in templates** — Generic Layered, Overall Architecture, Application Architecture, Data Architecture (data-warehouse layering), Technology Architecture, Middle Platform, Cloud Platform, Microservices, Security (MLPS 2.0), plus 3 flow-layout templates: Data Flow, Service Call Chain, Event Stream
+- **Sixteen built-in templates** — Generic Layered, Overall Architecture, Application Architecture, Data Architecture (data-warehouse layering), Technology Architecture, Middle Platform, Cloud Platform, Microservices, Security (MLPS 2.0), 3 flow-layout templates (Data Flow, Service Call Chain, Event Stream) and 4 table-layout inventories (Service Inventory, Capability Inventory, Service Catalog, Metric Dictionary)
 - **Layer connections** — optional inter-layer connection lines (layered layout only); arrows with labels and line styles; toggle via View menu
 - **Module badges** — `[call:xx]` / `[depends:xx]` tags in item lists rendered as inline badges across all layouts
 - **Export draw.io** — escape hatch: export `.drawio` XML for further editing in draw.io (free-form curves, complex layouts)
@@ -85,8 +85,14 @@ No GitHub? Drop the folder on any static host or intranet share — `index.html`
 | Data Flow | flow | violet | Source → Integration → ODS → DWD → DWS → ADS/Service (horizontal flow with labeled arrows) |
 | Service Call Chain | flow | aqua | Client → Gateway → Services → Data layer → Monitoring/Audit (call-chain flow) |
 | Event Stream | flow | amber | Event source → Message platform → Stream processing → Sink storage (event-driven flow) |
+| Service Inventory | table | slate | One row per service, attributes as columns (owner / tier / stack / status / release) — a table you can scan by column |
+| Capability Inventory | table | forest | One row per business capability: owning domain, tier, provider team, reuse count, maturity level |
+| Service Catalog | table | slate | IT service catalog: category, audience, SLA target, intake channel, owning team |
+| Metric Dictionary | table | violet | One row per metric: definition, data source, refresh cadence, owning department, dashboard |
 
 Templates are plain data in `templates.js` — copy the JSON structure to add your own. Optional metadata: `desc` (one-line use case), `tags` (2–3 scenario tags) and `scheme` (its palette); their colors are authored in the classic-blue ramp and mapped to the template's palette on load, so new templates don't have to hand-pick six shades.
+
+Three layouts share one data model: **layered**, **flow**, and **table**. Switching to table turns each module into a row and its items into the remaining cells, so the same diagram can be read as boxes or as a list; column headers live in `diagram.ext.table.columns` (editable from the property panel).
 
 ## Export
 
@@ -105,7 +111,8 @@ Templates are plain data in `templates.js` — copy the JSON structure to add yo
 ├─ index.html           # Editor shell (inline style spec + page; double-click to run)
 ├─ editor-core.js       # State, node lookup, data versioning (migrateDiagram)
 ├─ editor-tree.js       # Structure tree: render, node ops, quick-add, copy/paste, context menu
-├─ editor-render.js     # Render engine: layered / flow
+├─ editor-render.js     # Render engine: page shell (title/legend/sidebar) + "delegate to the layout"
+├─ editor-layout.js     # Layout registry: one descriptor per layout (caps, draw.io hints, render)
 ├─ editor-conn.js       # Layer connections: gutter UI, routing, draw.io export
 ├─ editor-ui.js         # Property panel, color schemes, start page, export (SVG/PNG/HTML), zoom, events
 ├─ templates.js         # Built-in template library (plain data)

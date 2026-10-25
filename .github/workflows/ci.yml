@@ -1,8 +1,8 @@
 name: CI
 
 # 纯静态项目没有构建步骤,CI 只做三件事:
-#   1) 六个脚本过一遍 node --check（防语法错误）
-#   2) 模板数据校验（结构/元信息/配色档位,见 tools/check-templates.mjs）
+#   1) 七个脚本过一遍 node --check（防语法错误）
+#   2) 模板数据校验（结构/元信息/配色档位/布局 id,见 tools/check-templates.mjs）
 #   3) index.html 与脚本的 id 接线检查 + 真浏览器 UI 冒烟（Chrome headless + CDP）
 
 on:
@@ -26,7 +26,7 @@ jobs:
       - name: 语法检查（node --check）
         run: |
           set -e
-          for f in templates.js editor-core.js editor-tree.js editor-render.js editor-conn.js editor-ui.js; do
+          for f in templates.js editor-core.js editor-tree.js editor-render.js editor-layout.js editor-conn.js editor-ui.js; do
             echo "· $f"
             node --check "$f"
           done

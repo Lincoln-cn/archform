@@ -9,10 +9,11 @@
 | `index.html` | 编辑器骨架(内联样式规范 + 页面结构,双击浏览器打开即用;GitHub Pages 可直接托管) |
 | `editor-core.js` | 数据与工具:状态、节点查找、模板加载、数据版本化(`migrateDiagram`) |
 | `editor-tree.js` | 结构树:四级树渲染、选中高亮、新增/删除/上移下移、复制粘贴、快捷录入、右键菜单 |
-| `editor-render.js` | 渲染引擎:2 种板式(多层横向 / 横向流向) |
+| `editor-render.js` | 渲染引擎:不含具体板式,只负责外壳(标题/图例/侧栏)与「按布局注册表调 `render`」 |
+| `editor-layout.js` | **布局注册表**:每种板式一条描述(name/caps/导出提示/render),加板式只改这个文件 + CSS |
 | `editor-ui.js` | 交互:工具栏菜单、属性面板、配色方案、启动面板、编辑操作、导入导出、SVG/PNG 导出、缩放预览、初始化 |
 | `editor-conn.js` | 层间连线(画布上配置、竖轨排布)与各类导出(PNG/SVG/独立 HTML/draw.io) |
-| `templates.js` | 预置模板库(12 个:通用分层 + 总体/应用/数据/技术 架构四件套 + 中台/云平台/微服务/安全架构 + 3 个横向流向模板,内容为中性占位) |
+| `templates.js` | 预置模板库(16 个:通用分层 + 总体/应用/数据/技术 架构四件套 + 中台/云平台/微服务/安全架构 + 3 个横向流向模板 + 4 个清单表格模板,内容为中性占位) |
 | `tools/` | 开发辅助(不参与运行):`check-templates.mjs` 模板校验、`check-html.mjs` 接线检查、`compare-templates.html` 模板对比页 |
 | `tests/` | UI 冒烟测试(`ui-smoke.mjs`,用 Chrome headless + CDP 点一遍开始页/模板/配色/新建) |
 
@@ -43,7 +44,7 @@
    - 右侧**属性面板**:随选中节点变化——图标题/副标题/板式、层名称/竖条颜色/列数/统计、分组标题、模块名称/副标题/条目列表。
    - **条目**(模块内的小标签):输入框回车即新增,点 `×` 删除;条目中 `[调用:xx]` / `[依赖:xx]` 格式自动渲染为橙色角标(全布局生效)。
    - 画布上直接点击任意模块也可选中编辑。
-3. **换板式**:属性面板选中「图」,改「布局范式」即可在同一份内容上切换 **多层横向 / 横向流向**,数据不丢失。旧 卡片网格 / 中央核心 数据会在打开时自动转为 多层横向。
+3. **换板式**:属性面板选中「图」,改「布局范式」即可在同一份内容上切换 **多层横向 / 横向流向 / 清单表格**,数据不丢失(清单表格里模块=一行、条目=列值)。旧 卡片网格 / 中央核心 数据会在打开时自动转为 多层横向。
 4. **配色**:工具栏「配色 ▾」一键套用预置风格(经典蓝/青绿/紫罗兰/暖橙/墨绿/灰蓝),或展开菜单底部自定义六档色阶并应用;配色随图保存,刷新与导出保持一致(含右侧通栏竖条)。
 5. **层间连线**(仅 layered 布局):点右侧属性面板（选中任意层）的「编辑层间连线…」或 **视图 ▾ → 编辑连线…** 打开连线面板。面板是右侧浮层，不遮画布：
    - 每行一条线：点「起点 / 终点」按钮后**直接在画布上点对应的层**（画布会变准星，点层即填；再点同一按钮取消）；
@@ -60,11 +61,11 @@
 
 ## 工具栏说明
 
-- **开始**：打开开始页（功能说明 + 新建 + 12 个模板的实时缩略图）；Esc 或点遮罩关闭
+- **开始**：打开开始页（功能说明 + 新建 + 全部模板的实时缩略图）；Esc 或点遮罩关闭
 - **文件 ▾**：新建空白图 / 保存到本地 / 导入JSON / 导出JSON / 导出SVG / 保存为HTML / 导出 draw.io
 - **视图 ▾**：预览（Esc 退出）/ 100%缩放 / 适应宽度 / 编辑连线…（打开连线面板）/ 连线开关（showConnections，常显/隐藏）
 - **配色 ▾**：预置配色方案 + 自定义六档色阶
-- **模板**：打开模板库（搜索 + 板式筛选 + 场景标签 + 实时缩略图），点格子即按该模板新建一张图；Esc 或点遮罩关闭
+- **模板**：打开模板库（搜索 + 板式筛选 + 场景标签 + 实时缩略图），点格子即按该模板新建一张图；Esc 或点遮罩关闭。板式切换按钮由布局注册表生成（每颗按钮后面是这一板式的模板数），以后新增板式会自动多一颗
 - 常驻：缩放滑块、`+ 新增层`、`导出PNG`
 
 ## 布局范式（板式）
@@ -73,6 +74,51 @@
 |---|---|---|
 | 多层横向 | 层(竖排 band) → 分组 → 模块卡片 → 条目 | 分层/模块类框图（默认） |
 | 横向流向 | 层(列) → 分组(纵叠) → 模块(整宽行) → 条目 | 数据链路/请求流/流程通道类框图 |
+| 清单表格 | 层(分区标题) → 分组(分区行) → 模块(=一行) → 条目(=其余各列) | 台账/清单/盘点：一行一条，列对齐后可横向扫读 |
+
+三种板式共用同一份数据：切到「清单表格」时模块变成行、条目变成这一行的其它格子，分组变成分区行；切回「多层横向」又变回卡片。清单的表头列名存在 `diagram.ext.table.columns`，属性面板选中「图」时可改「表头列名（逗号分隔）」，不填就按数据自动推（第一列「模块」、其后「列 1/列 2…」）。清单里不画层间连线（`caps.conn = 'none'`），也不留右侧通栏（列宽会被挤窄）。
+
+### 布局注册表（要加一种板式，改哪里）
+
+板式不是散在各处的 `if`，而是 `editor-layout.js` 里的一条描述：
+
+```js
+{ id:'layered', name:'多层横向', short:'纵向分层', family:'list',
+  caps: { conn:'rails', connAdjacent:false, railPad:true, sidebar:true },
+  drawio: { swimlane:{ horizontal:false, startSize:52, fontSize:17 }, exit:'left' },
+  render(d) { return renderLayered(d); } }
+```
+
+- `caps.conn`：连线形态 —— `rails`(左侧多轨道) / `gaps`(列间箭头) / `none`(不支持连线)；
+- `caps.connAdjacent`：是否只允许相邻两列连线（决定连线面板的提示与拦截）；
+- `caps.railPad`：是否要给左侧轨道留白；`caps.sidebar`：是否支持右侧体系通栏；
+- `drawio`：导出到 draw.io 时的 swimlane 方向/标题带宽度/字号与连线出边方向。
+
+**三条契约**（比代码更重要，`tools/` 与 CI 会兜住）：
+
+1. 板式只负责「盒子怎么摆」，**不许自己画 `<svg>` / `<canvas>`** —— 导出是按 DOM 实测几何采集的，画在画布上就量不到，PNG/SVG/draw.io 会直接失真；
+2. 每个可见盒子必须带 `data-role`（`title` / `subtitle` / `layer` / `band` / `group` / `card` / `item` / `sidebar` / `legend`…），导出与校验都靠它认结构，不靠 class 名；
+3. 板式**不许改 core 数据模型**，专属数据放 `diagram.ext.<布局id>`（如清单型的列定义 `ext.table.columns`），`migrateDiagram` 会原样保留未知字段。
+
+加一种板式的完整动作：注册表加一条 → 写 CSS → 给新盒子打 `data-role` → 跑 `node tests/ui-smoke.mjs`（布局矩阵会自动遍历注册表里每个板式做渲染 + 导出断言）。属性面板的「布局范式」下拉、模板库/开始页的板式标签都从注册表生成，不用另外改。
+
+### 节点注册表（要加一种节点 / 一个字段，改哪里）
+
+数据结构和「怎么编辑」也是表驱动的：`editor-core.js` 的 `NODE_TYPES` 里每种节点一条描述。
+
+```js
+layer: { label:'层', nameKey:'name', depth:1, field:'layers', chain:true,
+         children:['groups'], addType:'group', copyable:true,
+         probe: n => Array.isArray(n.groups),
+         fields: [ { k:'name', label:'层名称', kind:'text' }, … ] }
+```
+
+- `field` / `children` / `addType` 决定**节点挂在哪、能装什么** —— `findNode`、`findParent`、复制粘贴、结构树的「新建子项」、快速录入（层→分组→模块→条目）全部按这三个字段递归，不再写死四级；
+- `fields` 决定**属性面板长什么样**，支持 `text` / `color` / `select` / `check` / `chips` / `button` / `hint`，可选 `value`（取值）、`when`（条件显示）、`only`（限定板式，如清单的「表头列名」只在 `table` 下出现）；
+- `probe` 是**老数据的兼容入口**：没有 `type` 字段的旧图靠结构探测认类型，所以加类型不需要写迁移；
+- 布局专属数据写 `diagram.ext.<板式 id>`（清单的列名就是 `ext.table.columns`，属性面板用 `list:'ext.table.columns'` 直接写嵌套路径）。
+
+加一个字段：注册表 `fields` 里加一行 → 跑 `node tests/ui-smoke.mjs`（等价性快照与属性面板断言会兜住）。加一种节点：`NODE_TYPES` 加一条 + `NODE_DEFAULTS` 加工厂 + 在父节点的 `children` 里登记字段。
 
 ## 辅助区域（所有板式通用）
 
@@ -108,7 +154,7 @@
 - **数据版本化**：图数据带 `schemaVersion`（当前版本 2），加载时经 `migrateDiagram` 自动迁移/兜底；旧数据（无版本号）视为 v1 正常打开；版本过高时友好提示（见 [ROADMAP.md](ROADMAP.md)「数据兼容承诺」）。
 - **导出 JSON**：把当前图（含配色）存为 `.json`，可换机器/换项目继续编辑。
 - **导入 JSON**：打开「导入JSON」选择文件恢复。
-- **预置模板**：`templates.js` 中 `window.ARCH_TEMPLATES` 对象，按同样结构增删即可扩展；模板库按 `layout`（`flow`→横向流向 / `layered`→纵向分层）自动归类，`tags` 自动变成筛选标签、`desc` 参与搜索，所以新增模板**不用改任何界面代码**。
+- **预置模板**：`templates.js` 中 `window.ARCH_TEMPLATES` 对象，按同样结构增删即可扩展；模板库按 `layout`（`flow`→横向流向 / `layered`→纵向分层 / `table`→清单）自动归类，`tags` 自动变成筛选标签、`desc` 参与搜索，所以新增模板**不用改任何界面代码**。
   - 可选元信息（模板库/启动面板/模板仓库要用）：`desc`（一句话场景说明，≤40 字）、`tags`（2~3 个场景标签）、`scheme`（自带配色，取值 `blue/green/violet/amber/forest/slate`，与「配色 ▾」里的方案 id 一致）。模板里的颜色统一按「经典蓝」色阶书写，加载时按档位映射到 `scheme` 的目标色阶，所以新增模板不必手算六档颜色。
   - 改完模板跑一次校验：`node tools/check-templates.mjs`（零依赖）。它检查结构正确性（必填字段、id 唯一、连线指向存在的层）与设计规范（元信息是否齐、层数 3~6、每组模块数、每块条目数），有 ERROR 退出码为 1，只有 WARN 不影响使用。
   - 想看几个模板并排对比（真实渲染、不是截图）：浏览器打开 `tools/compare-templates.html`。
@@ -136,7 +182,7 @@ Diagram
 
 ## 通用性说明
 
-- 纯前端，不绑定任何项目；复制 `index.html` + 5 个 `editor-*.js`（`editor-core` / `editor-tree` / `editor-render` / `editor-conn` / `editor-ui`，按此顺序引入）+ `templates.js` 到新项目即可使用（保持同目录；`tools/`、`tests/` 只是开发辅助，可不带）。
+- 纯前端，不绑定任何项目；复制 `index.html` + 6 个 `editor-*.js`（`editor-core` / `editor-tree` / `editor-render` / `editor-layout` / `editor-conn` / `editor-ui`，按此顺序引入）+ `templates.js` 到新项目即可使用（保持同目录；`tools/`、`tests/` 只是开发辅助，可不带）。
 - 模板数据与编辑器分离：换项目只需替换 `templates.js`，或通过「导入 JSON」加载项目自己的图数据。
 - 样式规范固化在编辑器内（虚线面板、圆角 2px、字号层级），整体风格通过「配色 ▾」切换；如团队要改默认主题，改编辑器 `<style>` 中 `:root` 颜色变量即可全局生效。
 
@@ -146,10 +192,10 @@ Diagram
 
 | 命令 | 查什么 |
 |---|---|
-| `node --check editor-ui.js`（六个脚本逐个过） | 语法错误 |
-| `node tools/check-templates.mjs` | 模板结构与元信息（必填字段、id 唯一、连线指向存在的层、desc/tags/scheme 齐全、配色档位合法、层数/模块数/条目数是否合理） |
+| `node --check editor-ui.js`（七个脚本逐个过） | 语法错误 |
+| `node tools/check-templates.mjs` | 模板结构与元信息（必填字段、id 唯一、连线指向存在的层、desc/tags/scheme 齐全、配色档位合法、`layout` 必须是注册表里有的板式、层数/模块数/条目数是否合理） |
 | `node tools/check-html.mjs` | `index.html` 与脚本的接线：JS 里 `getElementById('x')` 的 id 必须真的存在（运行期动态创建的走白名单） |
-| `node tests/ui-smoke.mjs` | 真浏览器冒烟：Chrome headless + CDP 点一遍开始页 → 选模板 → 配色套用 → Esc 关闭 → 新建空图 → 首访自动弹页；顺带兜住未捕获异常 |
+| `node tests/ui-smoke.mjs` | 真浏览器冒烟：Chrome headless + CDP 点一遍开始页 → 选模板 → 配色套用 → Esc 关闭 → 新建空图 → 首访自动弹页；再加**布局矩阵**（注册表里每个板式都渲染一遍并导出 SVG/drawio）；顺带兜住未捕获异常 |
 
 `.github/workflows/ci.yml` 在每次 push / PR 时自动跑上面这四条（静态检查 jobs + Ubuntu 自带 Chrome 的 UI 冒烟 job）。UI 测试换浏览器：`CHROME_BIN=<路径> node tests/ui-smoke.mjs`。
 

@@ -29,6 +29,19 @@ const T = sandbox.window.ARCH_TEMPLATES || {};
 const keys = Object.keys(T);
 if (!keys.length) err('templates.js', '没有解析到任何模板(window.ARCH_TEMPLATES 为空)');
 
+/* 布局 id 以 editor-layout.js 的注册表为准 —— 加新布局时这个脚本不用改。
+   注册表用 const 声明,不挂到 vm 的全局对象上,所以在同一段脚本尾部追加一行导出。 */
+let LAYOUT_IDS = [];
+try {
+  const layoutSrc = fs.readFileSync(path.join(ROOT, 'editor-layout.js'), 'utf8');
+  const ls = { renderLayered: () => '', renderFlow: () => '', window: {} };
+  vm.runInNewContext(layoutSrc + '\n;globalThis.__LAYOUT_IDS = LAYOUT_LIST.map(function (L) { return L.id; });', ls);
+  LAYOUT_IDS = ls.__LAYOUT_IDS || [];
+} catch (e) {
+  err('editor-layout.js', '读不出布局注册表: ' + e.message);
+}
+if (!LAYOUT_IDS.length) err('editor-layout.js', 'LAYOUT_LIST 为空');
+
 const blockNames = new Map();
 const rows = [];
 
@@ -39,7 +52,7 @@ for (const key of keys) {
   if (!t.id) err(key, '缺 id');
   if (t.schemaVersion == null) err(key, '缺 schemaVersion');
   if (typeof t.title !== 'string' || !t.title.trim()) err(key, '缺 title');
-  if (t.layout !== 'layered' && t.layout !== 'flow') err(key, `layout 必须是 layered/flow，实际 ${t.layout}`);
+  if (LAYOUT_IDS.indexOf(t.layout) < 0) err(key, `layout 必须是 ${LAYOUT_IDS.join('/')}，实际 ${t.layout}`);
   if (!Array.isArray(t.layers) || !t.layers.length) { err(key, 'layers 必须是非空数组'); continue; }
   if (t.sidebar != null && !Array.isArray(t.sidebar)) err(key, 'sidebar 必须是数组');
   if (t.legend != null && !Array.isArray(t.legend)) err(key, 'legend 必须是数组');
@@ -91,7 +104,8 @@ for (const key of keys) {
   });
 
   const layerCount = (t.layers || []).length;
-  if (layerCount < LIMITS.layerMin) warn(key, `只有 ${layerCount} 层(分层图建议 ≥${LIMITS.layerMin} 层)`);
+  /* 层数只是"分层图"的审美约束:清单表格一行一条,一层是正常形态 */
+  if (t.layout !== 'table' && layerCount < LIMITS.layerMin) warn(key, `只有 ${layerCount} 层(分层图建议 ≥${LIMITS.layerMin} 层)`);
   if (layerCount > LIMITS.layerMax) warn(key, `有 ${layerCount} 层(建议 ≤${LIMITS.layerMax} 层,再多读图就费劲)`);
 
   /* ---- 2. 元信息(启动面板要用) ---- */

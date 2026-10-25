@@ -245,6 +245,29 @@
   .arch .legend-item .lg-sw{width:14px;height:14px;border-radius:2px;border:1px solid rgba(0,0,0,.15);flex:none}
   .arch .legend-item .lg-line{width:22px;height:0;border-top:3px solid;flex:none}
 
+  /* ===== 清单表格(table 布局) =====
+     一行一条,列对齐才能按列扫读;网格列宽由 --tb-cols 变量给(渲染时按列数算好)。 */
+  .arch .tb-wrap{display:flex;flex-direction:column;width:100%}
+  .arch .tb-head,.arch .tb-row{display:grid;grid-template-columns:var(--tb-cols);align-items:center}
+  .arch .tb-head{border-bottom:2px solid var(--group-border);background:var(--group-bg)}
+  .arch .tb-hc{padding:9px 12px;font-size:13px;font-weight:700;color:var(--group-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .arch .tb-layer{border-bottom:1px dashed var(--group-border)}
+  .arch .tb-layer:last-child{border-bottom:0}
+  .arch .tb-lh{display:flex;align-items:baseline;gap:10px;padding:12px 12px 4px;background:#fff}
+  .arch .tb-lh .zh{font-size:16px;font-weight:700;color:var(--group-ink)}
+  .arch .tb-lh .stat{font-size:12px;color:var(--ink-muted)}
+  .arch .tb-group{background:#fff}
+  .arch .tb-gh{display:flex;align-items:baseline;gap:8px;padding:5px 12px;background:#eef5fb;
+    border-left:3px solid var(--blue);font-size:13px;font-weight:700;color:var(--card-ink)}
+  .arch .tb-gh .gh-n{margin-left:auto;font-size:12px;font-weight:400;color:var(--ink-muted)}
+  .arch .tb-row{background:#fff}
+  .arch .tb-row:nth-child(even){background:#f7fafd}
+  .arch .tb-cell{padding:8px 12px;font-size:13px;color:var(--text);border-bottom:1px solid #e8eef5;
+    min-width:0;overflow-wrap:anywhere;line-height:1.5}
+  .arch .tb-row:last-child .tb-cell{border-bottom:0}
+  .arch .tb-cell.c1 .t{font-weight:700;color:var(--card-ink)}
+  .arch .tb-cell:empty{border-bottom:1px solid #f2f6fa}
+
   /* 编辑态高亮（导出时移除 .editing）：琥珀金选中，与蓝色系互补且醒目 */
   #captureArea.editing .arch [data-id]{outline:1px dashed rgba(245,166,35,.4);outline-offset:-1px;cursor:pointer}
   #captureArea.editing .arch [data-id]:hover{outline-color:rgba(245,166,35,.8);background:rgba(0,0,0,.1)}
@@ -595,7 +618,9 @@
     display:flex;justify-content:center;align-items:flex-start;
     padding:4vh 16px 16px;overflow:auto;
   }
-  #startPanel[hidden]{display:none}
+  /* 关闭时只「不可见 + 不吃点击」,不 display:none:十几张真图缩略图重排一次要 100ms 上下,
+     留着布局再打开就是瞬开;display:none 会让每次打开都整块重排(那一下用户能摸到卡顿)。 */
+  #startPanel[hidden]{visibility:hidden;opacity:0;pointer-events:none}
   .sp-card{
     position:relative;width:min(1120px,100%);max-height:92vh;display:flex;flex-direction:column;
     background:#fff;border-radius:10px;box-shadow:0 24px 64px rgba(15,42,71,.32);overflow:hidden;
@@ -626,7 +651,11 @@
     transition:border-color .12s,box-shadow .12s;
   }
   .sp-tile:hover{border-color:#2379bd;box-shadow:0 6px 18px rgba(35,121,189,.18)}
-  .sp-thumb{display:block;height:122px;background:#f5f8fb;border-bottom:1px solid #eef2f7;overflow:hidden;position:relative}
+  /* 缩略图是「整张真图缩下来」,一屏十几张、每张几百个节点。
+     contain + content-visibility 让滚出可视区的缩略图直接跳过布局与绘制 ——
+     不然每次打开面板都要把十几张图整排重排一遍(实测那一下卡 80~100ms)。 */
+  .sp-thumb{display:block;height:122px;background:#f5f8fb;border-bottom:1px solid #eef2f7;overflow:hidden;position:relative;
+    contain:strict;content-visibility:auto;contain-intrinsic-size:auto 122px}
   .sp-thumb .sp-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#b6c6d6;font-size:11px}
   .sp-thumb .sp-shot{position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none}
   .sp-meta{display:block;padding:9px 11px 10px}
@@ -649,7 +678,7 @@
     display:flex;justify-content:center;align-items:flex-start;
     padding:4vh 16px 16px;overflow:auto;
   }
-  #tplLib[hidden]{display:none}
+  #tplLib[hidden]{visibility:hidden;opacity:0;pointer-events:none}
   .tl-card{
     position:relative;width:min(1120px,100%);max-height:92vh;display:flex;flex-direction:column;
     background:#fff;border-radius:10px;box-shadow:0 24px 64px rgba(15,42,71,.32);overflow:hidden;
@@ -666,6 +695,9 @@
   .tl-seg button + button{border-left:1px solid #e3ebf3}
   .tl-seg button:hover{background:#f2f8fd}
   .tl-seg button.on{background:#2379bd;color:#fff}
+  /* 板式按钮后面那个小数字:这个板式下有几个模板(按钮由布局注册表生成) */
+  .tl-n{font-style:normal;font-size:11px;margin-left:5px;opacity:.62}
+  .tl-seg button.on .tl-n{opacity:.85}
   .tl-tags{display:flex;align-items:flex-start;gap:8px;padding:0 30px}
   .tl-taglist{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 auto;min-width:0;max-height:58px;overflow:hidden}
   .tl-taglist.open{max-height:none}
@@ -846,6 +878,7 @@
 <script src="editor-core.js"></script>
 <script src="editor-tree.js"></script>
 <script src="editor-render.js"></script>
+<script src="editor-layout.js"></script>
 <script src="editor-conn.js"></script>
 <script src="editor-ui.js"></script>
 </body>

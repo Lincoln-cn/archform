@@ -1,5 +1,5 @@
 /* ================= 内容树（渲染 / 节点操作 / 快速录入） ================= */
-const TREE_LABEL = { diagram: '图', layer: '层', group: '分组', block: '模块', container: '区域', section: '分区', legend: '图例' };
+/* 节点类型的中文名、取子规则、能否新增/复制都来自 editor-core.js 的 NODE_TYPES 注册表 */
 const collapsed = new Set();   // 已折叠的节点 id
 // SIDEBAR_ROOT / LEGEND_ROOT 定义在 editor-core.js（findNode 依赖）
 
@@ -65,7 +65,7 @@ function treeNode(node) {
   if (hasKids && !isCollapsed) {
     childrenHtml = '<ul>' + kids.map(k => treeNode(k)).join('') + '</ul>';
   }
-  const actAdd = t === 'diagram' || t === 'layer' || t === 'group' || t === 'container'
+  const actAdd = canAddChild(node)
     ? '<button class="abtn" title="新增子项" data-act="add">' + ACT_SVG.plus + '</button>' : '';
   const actUp = '<button class="abtn" title="上移" data-act="up">' + ACT_SVG.up + '</button>';
   const actDown = '<button class="abtn" title="下移" data-act="down">' + ACT_SVG.down + '</button>';
@@ -79,13 +79,21 @@ function treeNode(node) {
 }
 
 function childList(node) {
-  const t = nodeType(node);
-  if (t === 'diagram') return node.layers || [];
-  if (t === 'layer') return node.groups || [];
-  if (t === 'group') return node.blocks || [];
-  if (node.id === SIDEBAR_ROOT.id) return diagram.sidebar || [];
-  if (node.id === LEGEND_ROOT.id) return diagram.legend || [];
-  return null;
+  if (!node) return null;
+  if (node.id === SIDEBAR_ROOT.id) return diagram.sidebar || (diagram.sidebar = []);
+  if (node.id === LEGEND_ROOT.id) return diagram.legend || (diagram.legend = []);
+  const cfg = NODE_TYPES[nodeType(node)];
+  if (!cfg || !cfg.children.length) return null;
+  const f = cfg.children[0];
+  return node[f] || (node[f] = []);
+}
+
+/* 这个节点能不能直接新增子项（树上的「+」与右键菜单都问它） */
+function canAddChild(node) {
+  if (!node) return false;
+  if (node.id === SIDEBAR_ROOT.id || node.id === LEGEND_ROOT.id) return true;
+  const cfg = NODE_TYPES[nodeType(node)];
+  return !!(cfg && cfg.addType);
 }
 
 /* ================= 编辑操作 ================= */
@@ -109,23 +117,18 @@ function highlightSel() {
 function addChild(parentType) {
   if (!diagram) diagram = newDiagram();
   pushUndo();
-  if (parentType === 'diagram') {
-    diagram.layers.push({ id: uid(), name: '新层', bandColor: '#2379bd', cols: 3, groups: [] });
+  const target = selectedId ? findNode(selectedId) : (parentType === 'diagram' ? diagram : null);
+  if (!target) return;
+  if (target.id === SIDEBAR_ROOT.id) {
+    (diagram.sidebar = diagram.sidebar || []).push(NODE_DEFAULTS.sidebarItem());
+  } else if (target.id === LEGEND_ROOT.id) {
+    (diagram.legend = diagram.legend || []).push(NODE_DEFAULTS.legendItem());
   } else {
-    const node = selectedId ? findNode(selectedId) : null;
-    if (!node) return;
-    const t = nodeType(node);
-    if (t === 'diagram') {
-      node.layers.push({ id: uid(), name: '新层', bandColor: '#2379bd', cols: 3, groups: [] });
-    } else if (t === 'layer') {
-      node.groups.push({ id: uid(), title: '新分组', blocks: [] });
-    } else if (t === 'group') {
-      node.blocks.push({ id: uid(), title: '新模块', items: [] });
-    } else if (t === 'container' && node.id === SIDEBAR_ROOT.id) {
-      (diagram.sidebar = diagram.sidebar || []).push({ id: uid(), title: '新体系', items: [] });
-    } else if (t === 'container' && node.id === LEGEND_ROOT.id) {
-      (diagram.legend = diagram.legend || []).push({ id: uid(), title: '图例说明', color: '#2379bd' });
-    }
+    /* 新增什么节点由注册表的 addType 决定：图→层、层→分组、分组→模块 */
+    const cfg = NODE_TYPES[nodeType(target)];
+    if (!cfg || !cfg.addType) return;
+    const field = NODE_TYPES[cfg.addType].field;
+    (target[field] = target[field] || []).push(NODE_DEFAULTS[cfg.addType]());
   }
   persist(); render();
 }
@@ -164,17 +167,29 @@ function findParent(id, node = diagram) {
   if (diagram && diagram.sidebar && diagram.sidebar.some(s => s.id === id)) return SIDEBAR_ROOT;
   if (diagram && diagram.legend && diagram.legend.some(s => s.id === id)) return LEGEND_ROOT;
   if (!node) return null;
-  const kids = childList(node);
-  if (kids && kids.some(k => k.id === id)) return node;
-  if (node.layers) for (const l of node.layers) { const r = findParent(id, l); if (r) return r; }
-  if (node.groups) for (const g of node.groups) { const r = findParent(id, g); if (r) return r; }
-  if (node.blocks) for (const b of node.blocks) { const r = findParent(id, b); if (r) return r; }
-  if (node.rows) for (const b of node.rows) { const r = findParent(id, b); if (r) return r; }
+  const cfg = NODE_TYPES[nodeType(node)];
+  if (!cfg) return null;
+  for (const f of cfg.children) {
+    const kids = node[f];
+    if (Array.isArray(kids) && kids.some(k => k.id === id)) return node;
+  }
+  for (const f of cfg.children) {
+    const kids = node[f];
+    if (!Array.isArray(kids)) continue;
+    for (const k of kids) { const r = findParent(id, k); if (r) return r; }
+  }
   return null;
 }
 
 /* ================= 树内快速录入（单条） ================= */
 const _qa = { level: 'layer', parentId: null, lastId: null };
+/* 录入层级链来自注册表:只有 chain:true 的节点类型参与（层→分组→模块），末尾再补「条目」 */
+const QA_LEVELS = NODE_TYPE_LIST
+  .filter(t => NODE_TYPES[t].chain)
+  .sort((a, b) => NODE_TYPES[a].depth - NODE_TYPES[b].depth)
+  .concat('item');
+const QA_LABEL = { item: '条目' };
+const qaLabel = lv => QA_LABEL[lv] || (NODE_TYPES[lv] ? NODE_TYPES[lv].label : lv);
 
 function renderQuickAdd() {
   const ico = { layer: '&#9638;', group: '&#9636;', block: '&#9632;', item: '&#8226;' };
@@ -198,19 +213,18 @@ function renderQuickAdd() {
 }
 
 function qaCurrentText() {
-  const label = { layer: '层', group: '分组', block: '模块', item: '条目' };
-  if (_qa.level === 'layer') return '当前选择：<b>顶层</b>（新增层）';
+  if (_qa.level === QA_LEVELS[0]) return '当前选择：<b>顶层</b>（新增' + qaLabel(_qa.level) + '）';
   const parent = _qa.parentId ? findNode(_qa.parentId) : null;
-  if (!parent) return '当前选择：<b>顶层</b>（新增层）';
+  if (!parent) return '当前选择：<b>顶层</b>（新增' + qaLabel(QA_LEVELS[0]) + '）';
   const names = [];
   let cur = parent;
   while (cur) {
     const t = nodeType(cur);
-    if (t === 'layer' || t === 'group' || t === 'block') names.unshift(nodeName(cur));
+    if (NODE_TYPES[t] && NODE_TYPES[t].chain) names.unshift(nodeName(cur));
     const p = findParent(cur.id);
     cur = (p && p.id !== SIDEBAR_ROOT.id && p.id !== LEGEND_ROOT.id) ? p : null;
   }
-  return '当前选择：<b>' + esc(names.join(' / ')) + '</b>（新增' + label[_qa.level] + '）';
+  return '当前选择：<b>' + esc(names.join(' / ')) + '</b>（新增' + qaLabel(_qa.level) + '）';
 }
 
 function qaUpdateHint() {
@@ -224,27 +238,21 @@ function qaUpdateHint() {
   if (input) input.placeholder = ph[_qa.level];
 }
 
-function qaLevelDepth() {
-  return { layer: 0, group: 1, block: 2, item: 3 }[_qa.level] || 0;
-}
-
 function qaLevelFromNode(node) {
   const t = nodeType(node);
-  if (t === 'layer') return 'group';
-  if (t === 'group') return 'block';
-  if (t === 'block') return 'item';
-  return 'layer';
+  const cfg = NODE_TYPES[t];
+  if (!cfg || !cfg.chain) return QA_LEVELS[0];
+  const i = QA_LEVELS.indexOf(t);
+  return (i >= 0 && i < QA_LEVELS.length - 1) ? QA_LEVELS[i + 1] : QA_LEVELS[QA_LEVELS.length - 1];
 }
 
 function qaSyncFromSelection() {
-  if (!selectedId || !diagram) { _qa.level = 'layer'; _qa.parentId = null; _qa.lastId = null; return; }
+  if (!selectedId || !diagram) { _qa.level = QA_LEVELS[0]; _qa.parentId = null; _qa.lastId = null; return; }
   const node = findNode(selectedId);
   if (!node) return;
-  const t = nodeType(node);
-  if (t === 'layer') { _qa.level = 'group'; _qa.parentId = node.id; }
-  else if (t === 'group') { _qa.level = 'block'; _qa.parentId = node.id; }
-  else if (t === 'block') { _qa.level = 'item'; _qa.parentId = node.id; }
-  else { _qa.level = 'layer'; _qa.parentId = null; }
+  const cfg = NODE_TYPES[nodeType(node)];
+  if (cfg && cfg.chain) { _qa.level = qaLevelFromNode(node); _qa.parentId = node.id; }
+  else { _qa.level = QA_LEVELS[0]; _qa.parentId = null; }
   _qa.lastId = null;
   qaUpdateHint();
 }
@@ -258,36 +266,40 @@ function qaCommit() {
   if (!diagram) diagram = newDiagram();
   pushUndo();
 
-  if (_qa.level === 'layer') {
-    const layer = { id: uid(), name: val, bandColor: '#2379bd', cols: 3, groups: [] };
-    diagram.layers.push(layer);
-    _qa.lastId = layer.id;
-    _qa.parentId = layer.id;
-    _qa.level = 'group';
-  } else if (_qa.level === 'group') {
+  const lv = _qa.level;
+  if (lv === 'item') {
+    /* 最末一级:往模块里塞条目（逗号分隔可一次多条） */
+    const holderType = QA_LEVELS[QA_LEVELS.length - 2];
     const parent = _qa.parentId ? findNode(_qa.parentId) : null;
-    const layer = parent && nodeType(parent) === 'layer' ? parent : (diagram.layers[diagram.layers.length - 1]);
-    if (!layer) { alert('请先创建一个层'); return; }
-    const group = { id: uid(), title: val, blocks: [] };
-    layer.groups.push(group);
-    _qa.lastId = group.id;
-    _qa.parentId = group.id;
-    _qa.level = 'block';
-  } else if (_qa.level === 'block') {
-    const parent = _qa.parentId ? findNode(_qa.parentId) : null;
-    const group = parent && nodeType(parent) === 'group' ? parent : null;
-    if (!group) { alert('请先创建一个分组'); return; }
-    const block = { id: uid(), title: val, items: [], span: null };
-    group.blocks.push(block);
-    _qa.lastId = block.id;
-    _qa.parentId = block.id;
-    _qa.level = 'item';
-  } else if (_qa.level === 'item') {
-    const parent = _qa.parentId ? findNode(_qa.parentId) : null;
-    const block = parent && nodeType(parent) === 'block' ? parent : null;
-    if (!block) { alert('请先创建一个模块'); return; }
+    const block = parent && nodeType(parent) === holderType ? parent : null;
+    if (!block) { alert('请先创建一个' + NODE_TYPES[holderType].label); return; }
     const items = val.split(/[,，、;/]+/).map(s => s.trim()).filter(Boolean);
+    block.items = block.items || [];
     block.items.push(...items);
+  } else {
+    /* 层/分组/模块:父节点类型就是链上的上一级 */
+    const parentType = QA_LEVELS[QA_LEVELS.indexOf(lv) - 1];
+    let parent = null;
+    if (!parentType) {
+      parent = diagram;                                  // 顶层:直接挂到图上
+    } else {
+      const cand = _qa.parentId ? findNode(_qa.parentId) : null;
+      if (cand && nodeType(cand) === parentType) parent = cand;
+      /* 最上一级容器只有一个来源,没选中就落到最后一个(与旧行为一致:分组落到最后一层) */
+      if (!parent && parentType === QA_LEVELS[0]) {
+        const list = diagram[NODE_TYPES[parentType].field] || [];
+        parent = list[list.length - 1] || null;
+      }
+    }
+    if (!parent) { alert('请先创建一个' + NODE_TYPES[parentType].label); return; }
+    const obj = NODE_DEFAULTS[lv]();
+    obj[NODE_TYPES[lv].nameKey] = val;
+    const field = NODE_TYPES[lv].field;
+    (parent[field] = parent[field] || []).push(obj);
+    _qa.lastId = obj.id;
+    _qa.parentId = obj.id;
+    const next = QA_LEVELS[QA_LEVELS.indexOf(lv) + 1];
+    if (next) _qa.level = next;
   }
 
   input.value = '';
@@ -309,12 +321,11 @@ function qaKeydown(e) {
     qaCommit();
   } else if (e.key === 'Tab' && !e.shiftKey) {
     e.preventDefault();
-    const depths = ['layer', 'group', 'block', 'item'];
-    const cur = depths.indexOf(_qa.level);
-    if (cur < depths.length - 1) {
+    const cur = QA_LEVELS.indexOf(_qa.level);
+    if (cur < QA_LEVELS.length - 1) {
       if (_qa.lastId) {
         _qa.parentId = _qa.lastId;
-        _qa.level = depths[cur + 1];
+        _qa.level = QA_LEVELS[cur + 1];
       } else if (_qa.parentId) {
         const parent = findNode(_qa.parentId);
         if (parent) {
@@ -325,10 +336,9 @@ function qaKeydown(e) {
     }
   } else if (e.key === 'Tab' && e.shiftKey) {
     e.preventDefault();
-    const depths = ['layer', 'group', 'block', 'item'];
-    const cur = depths.indexOf(_qa.level);
+    const cur = QA_LEVELS.indexOf(_qa.level);
     if (cur > 0) {
-      _qa.level = depths[cur - 1];
+      _qa.level = QA_LEVELS[cur - 1];
       if (_qa.parentId) {
         const parent = findNode(_qa.parentId);
         if (parent) {
@@ -343,7 +353,7 @@ function qaKeydown(e) {
     e.preventDefault();
     const input = document.getElementById('qaInput');
     if (input) input.value = '';
-    _qa.level = 'layer'; _qa.parentId = null; _qa.lastId = null;
+    _qa.level = QA_LEVELS[0]; _qa.parentId = null; _qa.lastId = null;
     qaUpdateHint();
   }
 }
@@ -353,12 +363,13 @@ let _clipboard = null;   // { type: 'layer'|'group'|'block', node: 深拷贝(新
 
 function cloneWithNewIds(node) {
   const clone = JSON.parse(JSON.stringify(node));
+  /* 子节点数组名来自注册表：加一种节点类型不用在这里补分支 */
   const renew = n => {
-    if (n && n.id) n.id = uid();
-    if (n.layers) n.layers.forEach(renew);
-    if (n.groups) n.groups.forEach(renew);
-    if (n.blocks) n.blocks.forEach(renew);
-    if (n.rows) n.rows.forEach(renew);
+    if (!n || typeof n !== 'object') return;
+    if (n.id) n.id = uid();
+    const cfg = NODE_TYPES[nodeType(n)];
+    if (!cfg) return;
+    cfg.children.forEach(f => { if (Array.isArray(n[f])) n[f].forEach(renew); });
   };
   renew(clone);
   return clone;
@@ -369,7 +380,7 @@ function copySelected() {
   const node = findNode(selectedId);
   if (!node) return;
   const t = nodeType(node);
-  if (t !== 'layer' && t !== 'group' && t !== 'block') return;
+  if (!NODE_TYPES[t] || !NODE_TYPES[t].copyable) return;
   _clipboard = { type: t, node: cloneWithNewIds(node) };
 }
 
@@ -379,46 +390,31 @@ function pasteToTarget(targetId) {
   if (!target) return;
   const tt = targetId ? nodeType(target) : 'diagram';
   const ct = _clipboard.type;
+  const field = NODE_TYPES[ct] && NODE_TYPES[ct].field;
+  if (!field) return;
   const clone = cloneWithNewIds(_clipboard.node);   // 每次粘贴再克隆，避免共享引用
   let inserted = null;
 
-  if (ct === 'layer') {
-    if (tt === 'layer') {
-      const idx = diagram.layers.findIndex(l => l.id === target.id);
-      diagram.layers.splice(idx + 1, 0, clone);
-      inserted = clone;
-    } else if (tt === 'diagram') {
-      diagram.layers.push(clone);
-      inserted = clone;
-    }
-  } else if (ct === 'group') {
-    if (tt === 'layer') {
-      target.groups.push(clone);
-      inserted = clone;
-    } else if (tt === 'group') {
-      const parent = findParent(target.id);
-      if (parent && parent.groups) {
-        const idx = parent.groups.findIndex(g => g.id === target.id);
-        parent.groups.splice(idx + 1, 0, clone);
-        inserted = clone;
-      }
-    }
-  } else if (ct === 'block') {
-    if (tt === 'group') {
-      target.blocks.push(clone);
-      inserted = clone;
-    } else if (tt === 'block') {
-      const parent = findParent(target.id);
-      if (parent && parent.blocks) {
-        const idx = parent.blocks.findIndex(b => b.id === target.id);
-        parent.blocks.splice(idx + 1, 0, clone);
-        inserted = clone;
-      }
-    } else if (tt === 'layer') {
-      if (target.groups.length) target.groups[0].blocks.push(clone);
-      else target.groups.push({ id: uid(), title: '新分组', blocks: [clone] });
+  if (canContain(tt, ct)) {
+    /* 目标能直接装下它：追加到目标里 */
+    (target[field] = target[field] || []).push(clone);
+    inserted = clone;
+  } else {
+    /* 否则插到目标后面（同级）；父节点必须能装下 */
+    const parent = findParent(target.id);
+    if (parent && canContain(nodeType(parent), ct)) {
+      const list = parent[field] || (parent[field] = []);
+      const idx = list.findIndex(n => n.id === target.id);
+      list.splice(idx + 1, 0, clone);
       inserted = clone;
     }
+  }
+  /* 特例：把模块粘到层上 —— 塞进它第一个分组（没有就建一个），否则这一粘就没着落 */
+  if (!inserted && ct === 'block' && tt === 'layer') {
+    if (!Array.isArray(target.groups)) target.groups = [];
+    if (target.groups.length) target.groups[0].blocks.push(clone);
+    else target.groups.push({ id: uid(), title: '新分组', blocks: [clone] });
+    inserted = clone;
   }
 
   if (inserted) {
@@ -445,18 +441,20 @@ function showTreeMenu(e, id) {
 
   const node = findNode(id);
   const t = nodeType(node);
+  const cfg = NODE_TYPES[t] || { children: [], copyable: false };
   const hasClip = !!_clipboard;
   const menu = document.createElement('div');
   menu.id = 'treeCtxMenu';
   menu.className = 'tree-ctx-menu';
   let items = '';
-  if (t === 'diagram' || t === 'layer' || t === 'group' || t === 'container') {
+  if (canAddChild(node)) {
     items += '<button type="button" data-ctx="add">新建子项</button>';
   }
-  if (t === 'layer' || t === 'group' || t === 'block') {
+  if (cfg.copyable) {
     items += '<button type="button" data-ctx="copy">复制</button>';
   }
   items += '<button type="button" data-ctx="paste"' + (hasClip ? '' : ' disabled') + '>粘贴</button>';
+  /* 虚拟根与"通栏容器"没有兄弟，不能上下移；其余都能删 */
   if (t !== 'diagram' && t !== 'container') {
     items += '<hr>' +
       '<button type="button" data-ctx="up">上移</button>' +
